@@ -574,6 +574,19 @@ int ReadDataFromPrivateStorage(char *file, void **data, int *size) {
   return 0;
 }
 
+int WriteDataToPrivateStorage(char *file, void *data, int size) {
+  debugPrintf("WriteDataToPrivateStorage %s\n", file);
+  return 0;
+}
+
+float GetJoystickAxisValue(int axis) {
+  // joystickValues[axis] = 0.0f;;
+  // if (fabsf(joystickValues[axis]) < 0.25)
+    // joystickValues[axis] = 0.0f;
+  // return joystickValues[axis];
+  return 0.0f;
+}
+
 void functions_patch() {
   // egl
   hook_arm(find_addr_by_symbol("_Z14NVEventEGLInitv"), (uintptr_t)NVEventEGLInit);
@@ -600,10 +613,16 @@ void functions_patch() {
   hook_arm(find_addr_by_symbol("_Z14GetDisplayInfov"), (uintptr_t)GetDisplayInfo);
 
   hook_arm(find_addr_by_symbol("_Z26ReadDataFromPrivateStoragePKcRPcRi"), (uintptr_t)ReadDataFromPrivateStorage);
-
+  hook_arm(find_addr_by_symbol("_Z25WriteDataToPrivateStoragePKcS0_i"), (uintptr_t)WriteDataToPrivateStorage);
 
   hook_arm(find_addr_by_symbol("_Z16PlayAndroidMoviePKcfb"), (uintptr_t)ret0);
   hook_arm(find_addr_by_symbol("_Z21IsAndroidMoviePlayingv"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("_Z16StopAndroidMoviev"), (uintptr_t)ret0);
+
+  hook_arm(find_addr_by_symbol("_Z20GetJoystickAxisValuei"), (uintptr_t)GetJoystickAxisValue);
+
+  hook_arm(find_addr_by_symbol("_Z15AcquireWakeLockv"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("_Z15ReleaseWakeLockv"), (uintptr_t)ret0);
 }
 
 extern int _Znwj;
@@ -1333,6 +1352,8 @@ int main() {
   *(uint8_t *)find_addr_by_symbol("IsInitGraphics") = 1;
   *(uint32_t *)find_addr_by_symbol("androidScreenWidth") = 960;
   *(uint32_t *)find_addr_by_symbol("androidScreenHeight") = 544;
+
+  NVEventEGLInit();
 
   int (* NVEventAppMain)(int argc, char *argv[]) = (void *)find_addr_by_symbol("_Z14NVEventAppMainiPPc");
   NVEventAppMain(0, NULL);
