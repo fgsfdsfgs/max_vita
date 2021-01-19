@@ -507,7 +507,7 @@ char *OS_FileGetArchiveName(int mode) {
 FILE *fopen_hook(const char *filename, const char *mode) {
   FILE *file = fopen(filename, mode);
   // if (!file)
-    debugPrintf("fopen %s: %p\n", filename, file);
+    // debugPrintf("fopen %s: %p\n", filename, file);
   return file;
 }
 
@@ -602,9 +602,8 @@ void functions_patch() {
   hook_arm(find_addr_by_symbol("_Z26ReadDataFromPrivateStoragePKcRPcRi"), (uintptr_t)ReadDataFromPrivateStorage);
 
 
-
-
-
+  hook_arm(find_addr_by_symbol("_Z16PlayAndroidMoviePKcfb"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("_Z21IsAndroidMoviePlayingv"), (uintptr_t)ret0);
 }
 
 extern int _Znwj;
@@ -737,6 +736,8 @@ static const short _C_tolower_[] = {
 
 const short *_toupper_tab_ = _C_toupper_;
 const short *_tolower_tab_ = _C_tolower_;
+
+char *__ctype_ = (char *)&_ctype_;
 
 // this is supposed to be an array of FILEs, which have a different size in libMaxPayne
 // instead use it to determine whether it's trying to print to stdout/stderr
@@ -942,7 +943,7 @@ DynLibFunction dynlib_functions[] = {
   { "_Unwind_VRS_Get", (uintptr_t)&_Unwind_VRS_Get },
   { "_Unwind_VRS_Set", (uintptr_t)&_Unwind_VRS_Set },
 
-  { "_ctype_", (uintptr_t)&_ctype_ },
+  { "_ctype_", (uintptr_t)&__ctype_ },
 
    // TODO: use math neon?
   { "asin", (uintptr_t)&asin },
@@ -1099,8 +1100,8 @@ DynLibFunction dynlib_functions[] = {
   { "glViewport", (uintptr_t)&glViewport },
 
   // TODO: check if they are compatible
-  // { "longjmp", (uintptr_t)&longjmp },
-  // { "setjmp", (uintptr_t)&setjmp },
+  { "longjmp", (uintptr_t)&longjmp },
+  { "setjmp", (uintptr_t)&setjmp },
 
   { "memcmp", (uintptr_t)&memcmp },
   { "memcpy", (uintptr_t)&memcpy_neon },
