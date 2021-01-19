@@ -506,8 +506,8 @@ char *OS_FileGetArchiveName(int mode) {
 
 FILE *fopen_hook(const char *filename, const char *mode) {
   FILE *file = fopen(filename, mode);
-  if (!file)
-    debugPrintf("fopen failed for %s\n", filename);
+  // if (!file)
+    debugPrintf("fopen %s: %p\n", filename, file);
   return file;
 }
 
@@ -542,81 +542,36 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
   return sceKernelDelayThreadCB(usec);
 }
 
-void
-matmul4_neon(float m0[16], float m1[16], float d[16])
-{
-  asm volatile (
-    "vld1.32  {d0, d1},   [%1]!\n\t" //q0 = m1
-    "vld1.32  {d2, d3},   [%1]!\n\t" //q1 = m1+4
-    "vld1.32  {d4, d5},   [%1]!\n\t" //q2 = m1+8
-    "vld1.32  {d6, d7},   [%1]\n\t"  //q3 = m1+12
-    "vld1.32  {d16, d17}, [%0]!\n\t" //q8 = m0
-    "vld1.32  {d18, d19}, [%0]!\n\t" //q9 = m0+4
-    "vld1.32  {d20, d21}, [%0]!\n\t" //q10 = m0+8
-    "vld1.32  {d22, d23}, [%0]\n\t"  //q11 = m0+12
+typedef struct {
+  float density;
+  int densityDPI;
+  float scaledDensity;
+  float widthDPI;
+  float heightDPI;
+  int widthPixels;
+  int heightPixels;
+  float widthInches;
+  float heightInches;
+  float diagonalInches;
+} DisplayInfo;
 
-    "vmul.f32 q12, q8,  d0[0]\n\t"   //q12 = q8 * d0[0]
-    "vmul.f32 q13, q8,  d2[0]\n\t"   //q13 = q8 * d2[0]
-    "vmul.f32 q14, q8,  d4[0]\n\t"   //q14 = q8 * d4[0]
-    "vmul.f32 q15, q8,  d6[0]\n\t"   //q15 = q8 * d6[0]
-    "vmla.f32 q12, q9,  d0[1]\n\t"   //q12 = q9 * d0[1]
-    "vmla.f32 q13, q9,  d2[1]\n\t"   //q13 = q9 * d2[1]
-    "vmla.f32 q14, q9,  d4[1]\n\t"   //q14 = q9 * d4[1]
-    "vmla.f32 q15, q9,  d6[1]\n\t"   //q15 = q9 * d6[1]
-    "vmla.f32 q12, q10, d1[0]\n\t"   //q12 = q10 * d0[0]
-    "vmla.f32 q13, q10, d3[0]\n\t"   //q13 = q10 * d2[0]
-    "vmla.f32 q14, q10, d5[0]\n\t"   //q14 = q10 * d4[0]
-    "vmla.f32 q15, q10, d7[0]\n\t"   //q15 = q10 * d6[0]
-    "vmla.f32 q12, q11, d1[1]\n\t"   //q12 = q11 * d0[1]
-    "vmla.f32 q13, q11, d3[1]\n\t"   //q13 = q11 * d2[1]
-    "vmla.f32 q14, q11, d5[1]\n\t"   //q14 = q11 * d4[1]
-    "vmla.f32 q15, q11, d7[1]\n\t"   //q15 = q11 * d6[1]
-
-    "vst1.32  {d24, d25}, [%2]!\n\t"  //d = q12
-    "vst1.32  {d26, d27}, [%2]!\n\t"  //d+4 = q13
-    "vst1.32  {d28, d29}, [%2]!\n\t"  //d+8 = q14
-    "vst1.32  {d30, d31}, [%2]\n\t"   //d+12 = q15
-
-    : "+r"(m0), "+r"(m1), "+r"(d) :
-    : "q0", "q1", "q2", "q3", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15",
-    "memory"
-  );
+void GetDisplayInfo(DisplayInfo *info) {
+  memset(info, 0, sizeof(DisplayInfo));
+  info->density = 0.0f; // TODO
+  info->densityDPI = 0; // TODO
+  info->widthDPI = 0.0f; // TODO
+  info->heightDPI = 0.0f; // TODO
+  info->widthPixels = 960;
+  info->heightPixels = 544;
+  info->widthInches = (float)info->widthPixels / info->widthDPI;
+  info->heightInches = (float)info->heightPixels / info->heightDPI;
+  info->diagonalInches = sqrtf(info->widthInches * info->widthInches + info->heightInches * info->heightInches) / info->density;
 }
 
-void *(* GetCurrentProjectionMatrix)();
-
-void SetMatrixConstant(void *ES2Shader, int MatrixConstantID, float *matrix) {
-#ifdef MVP_OPTIMIZATION
-  if (MatrixConstantID == 0) { // Projection matrix
-    void *MvpMatrix = ES2Shader + 0x4C * 0;
-    float *MvpMatrixData = MvpMatrix + 0x2AC;
-    float *MvMatrixData = (ES2Shader + 0x4C * 1) + 0x2AC;
-    matmul4_neon(matrix, MvMatrixData, MvpMatrixData);
-    *(uint8_t *)(MvpMatrix + 0x2EC) = 1;
-    *(uint8_t *)(MvpMatrix + 0x2A8) = 1;
-    return;
-  } else if (MatrixConstantID == 1) { // Model view matrix
-    float *ProjMatrix = (float *)GetCurrentProjectionMatrix();
-    // There will be no fresher ProjMatrix, so we should update MvpMatrix as well.
-    if (((uint8_t *)ProjMatrix)[64] == 0) {
-      void *MvpMatrix = ES2Shader + 0x4C * 0;
-      float *MvpMatrixData = MvpMatrix + 0x2AC;
-      matmul4_neon(ProjMatrix, matrix, MvpMatrixData);
-      *(uint8_t *)(MvpMatrix + 0x2EC) = 1;
-      *(uint8_t *)(MvpMatrix + 0x2A8) = 1;
-    }
-  }
-#endif
-
-  void *UniformMatrix = ES2Shader + 0x4C * MatrixConstantID;
-  float *UniformMatrixData = UniformMatrix + 0x2AC;
-
-  // That check is so useless IMO. If you need to go through both matrices anways, why just don't copy.
-  // if (memcmp(UniformMatrixData, matrix, 16 * 4) != 0) {
-    memcpy_neon(UniformMatrixData, matrix, 16 * 4);
-    *(uint8_t *)(UniformMatrix + 0x2EC) = 1;
-    *(uint8_t *)(UniformMatrix + 0x2A8) = 1;
-  // }
+int ReadDataFromPrivateStorage(char *file, void **data, int *size) {
+  debugPrintf("ReadDataFromPrivateStorage %s\n", file);
+  // *data = malloc(1024);
+  return 0;
 }
 
 void functions_patch() {
@@ -629,14 +584,27 @@ void functions_patch() {
   // TODO: implement touch here
   hook_arm(find_addr_by_symbol("_Z13ProcessEventsb"), (uintptr_t)ProcessEvents);
 
-  // hook_thumb(find_addr_by_symbol("_Z24NVThreadGetCurrentJNIEnvv"), (uintptr_t)0x1337);
-
-  // do not check result of CFileMgr::OpenFile in CWaterLevel::WaterLevelInitialise
-  uint32_t nop = 0xbf00bf00;
-  kuKernelCpuUnrestrictedMemcpy(text_base + 0x004D7A2A, &nop, 2);
+  hook_arm(find_addr_by_symbol("NVThreadGetCurrentJNIEnv"), (uintptr_t)0x1337);
 
   // uint16_t bkpt = 0xbe00;
   // kuKernelCpuUnrestrictedMemcpy(text_base + 0x00194968, &bkpt, 2);
+
+  hook_arm(find_addr_by_symbol("_Z25GetAndroidCurrentLanguagev"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("_Z13SetScreenViewib"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("NvAPKOpen"), (uintptr_t)ret0);
+
+  // Use for UseBloom
+  hook_arm(find_addr_by_symbol("_Z13OS_DeviceTypev"), (uintptr_t)ret0);
+
+
+  hook_arm(find_addr_by_symbol("_Z14GetDisplayInfov"), (uintptr_t)GetDisplayInfo);
+
+  hook_arm(find_addr_by_symbol("_Z26ReadDataFromPrivateStoragePKcRPcRi"), (uintptr_t)ReadDataFromPrivateStorage);
+
+
+
+
+
 }
 
 extern int _Znwj;
@@ -1034,7 +1002,7 @@ DynLibFunction dynlib_functions[] = {
   { "abort", (uintptr_t)&abort },
   { "exit", (uintptr_t)&exit },
 
-  { "fopen", (uintptr_t)&fopen },
+  { "fopen", (uintptr_t)&fopen_hook },
   { "fclose", (uintptr_t)&fclose },
   { "fdopen", (uintptr_t)&fdopen },
   { "fflush", (uintptr_t)&fflush },
@@ -1358,6 +1326,7 @@ int main() {
 
   sceKernelFreeMemBlock(so_blockid);
 
+  strcpy((char *)find_addr_by_symbol("StorageRootBuffer"), "ux0:data");
   *(uint8_t *)find_addr_by_symbol("IsAndroidPaused") = 0;
   *(uint32_t *)find_addr_by_symbol("cIsAndroidPaused") = 0;
   *(uint8_t *)find_addr_by_symbol("IsInitGraphics") = 1;
