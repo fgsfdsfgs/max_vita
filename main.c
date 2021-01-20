@@ -794,6 +794,12 @@ int SigningOutfromApp = 0;
 
 int __stack_chk_guard_fake = 0x42424242;
 
+void glGetIntegervHook(GLenum pname, GLint *data) {
+  glGetIntegerv(pname, data);
+  if (pname == GL_MAX_VERTEX_UNIFORM_VECTORS)
+    *data = (63 * 3) + 32; // piglet hardcodes 128! need this for the bones
+}
+
 // Piglet does not use softfp, so we need to write some wrappers
 
 __attribute__((naked)) void glClearColorWrapper(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha) {
@@ -810,6 +816,22 @@ __attribute__((naked)) void glClearDepthfWrapper(GLfloat d) {
   asm volatile (
     "vmov s0, r0\n"
     "b glClearDepthf\n"
+  );
+}
+
+__attribute__((naked)) void glUniform1fWrapper(GLint location, GLfloat v) {
+  asm volatile (
+    "vmov s0, r1\n"
+    "b glUniform1f\n"
+  );
+}
+
+__attribute__((naked)) void glUniform3fWrapper(GLint location, GLfloat v0, GLfloat v1, GLfloat v2) {
+  asm volatile (
+    "vmov s0, r1\n"
+    "vmov s1, r2\n"
+    "vmov s2, r3\n"
+    "b glUniform3f\n"
   );
 }
 
@@ -839,6 +861,20 @@ void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum internalforma
 void glTexImage2DHook(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data) {
   if (!level)
     glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
+}
+
+void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
+  static char srcbuf[0x2000];
+  GLsizei len = 0;
+  glGetShaderSource(shader, sizeof(srcbuf), &len, srcbuf);
+  if (len > 0) printf("\nshader source:\n%s\n", srcbuf);
+  glGetShaderInfoLog(shader, maxLength, length, infoLog);
+  debugPrintf("shader info log:\n%s\n", infoLog);
+}
+
+void glGetProgramInfoLogHook(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
+  glGetProgramInfoLog(program, maxLength, length, infoLog);
+  debugPrintf("program info log:\n%s\n", infoLog);
 }
 
 typedef struct {
@@ -1090,7 +1126,7 @@ DynLibFunction dynlib_functions[] = {
   { "glGetIntegerv", (uintptr_t)&glGetIntegerv },
   { "glGetProgramInfoLog", (uintptr_t)&glGetProgramInfoLog },
   { "glGetProgramiv", (uintptr_t)&glGetProgramiv },
-  { "glGetShaderInfoLog", (uintptr_t)&glGetShaderInfoLog },
+  { "glGetShaderInfoLog", (uintptr_t)&glGetShaderInfoLogHook },
   { "glGetShaderiv", (uintptr_t)&glGetShaderiv },
   { "glGetString", (uintptr_t)&glGetString },
   { "glGetUniformLocation", (uintptr_t)&glGetUniformLocation },
@@ -1104,11 +1140,11 @@ DynLibFunction dynlib_functions[] = {
   { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
   { "glTexParameterf", (uintptr_t)&glTexParameterf },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
-  { "glUniform1f", (uintptr_t)&glUniform1f },
+  { "glUniform1f", (uintptr_t)&glUniform1fWrapper },
   { "glUniform1fv", (uintptr_t)&glUniform1fv },
   { "glUniform1i", (uintptr_t)&glUniform1i },
   { "glUniform2fv", (uintptr_t)&glUniform2fv },
-  { "glUniform3f", (uintptr_t)&glUniform3f },
+  { "glUniform3f", (uintptr_t)&glUniform3fWrapper },
   { "glUniform3fv", (uintptr_t)&glUniform3fv },
   { "glUniform4fv", (uintptr_t)&glUniform4fv },
   { "glUniformMatrix3fv", (uintptr_t)&glUniformMatrix3fv },

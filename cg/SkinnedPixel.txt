@@ -1,0 +1,9 @@
+MIPMAP
+
+fixed4 main(
+  half2 Out_Tex0 : TEXCOORD0,
+  fixed4 Out_Color0 : COLOR0,
+  uniform sampler2D Diffuse
+) : COLOR {
+  return TEX2D_MIPSAMPLE(Diffuse, Out_Tex0) * Out_Color0;
+}

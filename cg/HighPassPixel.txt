@@ -1,0 +1,9 @@
+fixed4 main(
+  half2 Out_Tex0 : TEXCOORD0,
+  uniform sampler2D Diffuse,
+  uniform half3 ColorMult
+) : COLOR {
+  fixed3 sceneColor = tex2D(Diffuse, Out_Tex0).xyz;
+  fixed factor = min((length(sceneColor) - ColorMult.x) * ColorMult.y, ColorMult.z);
+  return vec4(sceneColor * factor, 1.0);
+}

@@ -1,0 +1,15 @@
+void main(
+  float3 Position,
+  float2 TexCoord0,
+  float2 TexCoord1,
+  uniform float4x4 WorldToView,
+  uniform float4x4 ObjToWorld,
+  half2 out Out_Tex0 : TEXCOORD0,
+  half2 out Out_Tex1 : TEXCOORD1,
+  float4 out gl_Position : POSITION
+) {
+  float4 WorldPos = mul(ObjToWorld, float4(Position, 1.0));
+  gl_Position = mul(WorldPos, WorldToView);
+  Out_Tex0 = TexCoord0 * 0.00390625; // 1 / 256.0
+  Out_Tex1 = TexCoord1 * 0.00390625; // 1 / 256.0
+}

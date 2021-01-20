@@ -1,0 +1,15 @@
+MIPMAP
+
+fixed4 main(
+  half2 Out_Tex0 : TEXCOORD0,
+  half2 Out_Tex1 : TEXCOORD1,
+  // float4 Out_ScreenPos : WPOS,
+  uniform sampler2D Diffuse,
+  uniform sampler2D Lightmap,
+  uniform half AlphaRef
+) : COLOR {
+  fixed4 LightColor = tex2D(Lightmap, Out_Tex1);
+  fixed4 gl_FragColor = TEX2D_MIPSAMPLE(Diffuse, Out_Tex0) * LightColor;
+  ALPHAKILL
+  return gl_FragColor;
+}

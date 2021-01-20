@@ -1,0 +1,79 @@
+void main(
+  float3 Position,
+  float3 Normal,
+  float2 TexCoord0,
+  float4 BoneWeights,
+  float4 BoneIndices,
+  uniform float4x4 WorldToView,
+  uniform float4x4 ObjToWorld,
+  uniform half4 AmbientColor,
+  uniform half4 PointLightPosition,
+  uniform half4 PointLightColor,
+  uniform half4 PointLightAttenuation,
+  uniform half4 PointLight2Position,
+  uniform half4 PointLight2Color,
+  uniform half4 PointLight2Attenuation,
+  uniform half4 PointLight3Position,
+  uniform half4 PointLight3Color,
+  uniform half4 PointLight3Attenuation,
+  uniform half4 PointLight4Position,
+  uniform half4 PointLight4Color,
+  uniform half4 PointLight4Attenuation,
+  uniform float4 Bones[180],
+  half2 out Out_Tex0 : TEXCOORD0,
+  fixed4 out Out_Color0 : COLOR0,
+  float4 out gl_Position : POSITION
+) {
+  // Build a transposed LocalToBone matrix: 
+  int4 BlendIndexArray = int4(BoneIndices);
+  float4x4 LocalToBone;
+  LocalToBone[0] = Bones[BlendIndexArray.x*3+0] * BoneWeights.x;
+  LocalToBone[1] = Bones[BlendIndexArray.x*3+1] * BoneWeights.x;
+  LocalToBone[2] = Bones[BlendIndexArray.x*3+2] * BoneWeights.x;
+  LocalToBone[3] = float4(0.0, 0.0, 0.0, 1.0);
+  LocalToBone[0] += Bones[BlendIndexArray.y*3+0] * BoneWeights.y;
+  LocalToBone[1] += Bones[BlendIndexArray.y*3+1] * BoneWeights.y;
+  LocalToBone[2] += Bones[BlendIndexArray.y*3+2] * BoneWeights.y;
+  LocalToBone[0] += Bones[BlendIndexArray.z*3+0] * BoneWeights.z;
+  LocalToBone[1] += Bones[BlendIndexArray.z*3+1] * BoneWeights.z;
+  LocalToBone[2] += Bones[BlendIndexArray.z*3+2] * BoneWeights.z;
+  LocalToBone[0] += Bones[BlendIndexArray.w*3+0] * BoneWeights.w;
+  LocalToBone[1] += Bones[BlendIndexArray.w*3+1] * BoneWeights.w;
+  LocalToBone[2] += Bones[BlendIndexArray.w*3+2] * BoneWeights.w;
+
+  float4 BonePos = mul(LocalToBone, float4(Position, 1));
+  float4 WorldPos = mul(BonePos, ObjToWorld);
+  float4 ViewPos = mul(WorldPos, WorldToView);
+  gl_Position = ViewPos;
+
+  Out_Tex0 = TexCoord0 * 0.00390625; // 1 / 256.0
+
+  // Normal
+  float3 WorldNormal = mul(mul(LocalToBone, float4(Normal, 0)), ObjToWorld).xyz;
+
+  // Point Light
+  float3 LightToVertex = PointLightPosition.xyz - WorldPos.xyz;
+  float distance = length(LightToVertex);
+  float attenuation = 1.0 / (dot(float3(1.0,distance,distance*distance), PointLightAttenuation));
+  float power = attenuation * max(dot(normalize(LightToVertex), WorldNormal), 0.05);
+
+  // Point Light 2
+  LightToVertex = PointLight2Position.xyz - WorldPos.xyz;
+  distance = length(LightToVertex);
+  attenuation = 1.0 / (dot(float3(1.0,distance,distance*distance), PointLight2Attenuation));
+  float power2 = attenuation * max(dot(normalize(LightToVertex), WorldNormal), 0.05);
+
+  // Point Light 3
+  LightToVertex = PointLight3Position.xyz - WorldPos.xyz;
+  distance = length(LightToVertex);
+  attenuation = 1.0 / (dot(float3(1.0,distance,distance*distance), PointLight3Attenuation));
+  float power3 = attenuation * max(dot(normalize(LightToVertex), WorldNormal), 0.05);
+
+  // Point Light 4
+  LightToVertex = PointLight4Position.xyz - WorldPos.xyz;
+  distance = length(LightToVertex);
+  attenuation = 1.0 / (dot(float3(1.0,distance,distance*distance), PointLight4Attenuation));
+  float power4 = attenuation * max(dot(normalize(LightToVertex), WorldNormal), 0.05);
+
+  Out_Color0 = AmbientColor + PointLightColor * power + PointLight2Color * power2 + PointLight3Color * power3 + PointLight4Color * power4;
+}

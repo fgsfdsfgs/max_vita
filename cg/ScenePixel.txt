@@ -1,0 +1,8 @@
+fixed4 main(
+  half2 Out_Tex0 : TEXCOORD0,
+  uniform sampler2D Diffuse,
+  uniform half3 ColorMult,
+  uniform half3 ColorAdd
+) : COLOR {
+  return fixed4(tex2D(Diffuse, Out_Tex0).xyz  * ColorMult + ColorAdd, 1.0);
+}
