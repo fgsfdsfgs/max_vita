@@ -595,33 +595,24 @@ float GetJoystickAxisValue(int axis) {
       val = ((float)pad.lx - 128.0f) / 128.0f;
       break;
     case 1:
-      val = ((float)pad.ly - 128.0f) / 128.0f;
+      val = ((float)pad.ly - 128.0f) / -128.0f;
       break;
     case 2:
       val = ((float)pad.rx - 128.0f) / 128.0f;
       break;
     case 3:
-      val = ((float)pad.ry - 128.0f) / 128.0f;
+      val = ((float)pad.ry - 128.0f) / -128.0f;
       break;
     case 4: // L2
+      val = (pad.buttons & SCE_CTRL_L1) ? 1.0f : 0.0f;
+      break;
     case 5: // R2
-    {
-      for (int i = 0; i < touch.reportNum; i++) {
-        if (touch.report[i].y < 1088/2) {
-          if (touch.report[i].x < 1920/2) {
-            if (axis == 4)
-              val = 1.0f;
-          } else {
-            if (axis == 5)
-              val = 1.0f;
-          }
-        }
-      }
-    }
+      val = (pad.buttons & SCE_CTRL_R1) ? 1.0f : 0.0f;
+      break;
   }
 
   joystickValues[axis] = val;
-  if (fabsf(joystickValues[axis]) < 0.25)
+  if (fabsf(joystickValues[axis]) < 0.25f)
     joystickValues[axis] = 0.0f;
 
   return joystickValues[axis];
@@ -648,19 +639,20 @@ uint32_t GetJoystickButtons(void) {
     mask |= 0x10;
   if (pad.buttons & SCE_CTRL_SELECT)
     mask |= 0x20;
-  if (pad.buttons & SCE_CTRL_L1)
-    mask |= 0x40;
-  if (pad.buttons & SCE_CTRL_R1)
-    mask |= 0x80;
+  // if (pad.buttons & SCE_CTRL_L1)
+  //   mask |= 0x40;
+  // if (pad.buttons & SCE_CTRL_R1)
+  //   mask |= 0x80;
   if (pad.buttons & SCE_CTRL_UP)
     mask |= 0x100;
   if (pad.buttons & SCE_CTRL_DOWN)
     mask |= 0x200;
   if (pad.buttons & SCE_CTRL_LEFT)
-    mask |= 0x400;
+    mask |= 0x400 | 0x40; // also press L1
   if (pad.buttons & SCE_CTRL_RIGHT)
-    mask |= 0x800;
+    mask |= 0x800 | 0x80; // also press R1
 
+/*
   for (int i = 0; i < touch.reportNum; i++) {
     if (touch.report[i].y > 1088/2) {
       if (touch.report[i].x < 1920/2)
@@ -669,6 +661,7 @@ uint32_t GetJoystickButtons(void) {
         mask |= 0x2000; // R3
     }
   }
+*/
 
   return mask;
 }
@@ -1487,7 +1480,8 @@ int main() {
   *(uint32_t *)find_addr_by_symbol("androidScreenHeight") = 544;
   joystickValues = (float *)find_addr_by_symbol("joystickValues");
 
-  NVEventEGLInit();
+  uint32_t (* initGraphics)(void) = (void *)find_addr_by_symbol("_Z12initGraphicsv");
+  initGraphics();
 
   uint32_t (* ShowJoystick)(int show) = (void *)find_addr_by_symbol("_Z12ShowJoystickb");
   ShowJoystick(0);
