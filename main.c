@@ -579,12 +579,98 @@ int WriteDataToPrivateStorage(char *file, void *data, int size) {
   return 0;
 }
 
+float *joystickValues = NULL;
+
 float GetJoystickAxisValue(int axis) {
-  // joystickValues[axis] = 0.0f;;
-  // if (fabsf(joystickValues[axis]) < 0.25)
-    // joystickValues[axis] = 0.0f;
-  // return joystickValues[axis];
-  return 0.0f;
+  SceCtrlData pad;
+  sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
+
+  SceTouchData touch;
+  sceTouchPeek(0, &touch, 1);
+
+  float val = 0.0f;
+
+  switch (axis) {
+    case 0:
+      val = ((float)pad.lx - 128.0f) / 128.0f;
+      break;
+    case 1:
+      val = ((float)pad.ly - 128.0f) / 128.0f;
+      break;
+    case 2:
+      val = ((float)pad.rx - 128.0f) / 128.0f;
+      break;
+    case 3:
+      val = ((float)pad.ry - 128.0f) / 128.0f;
+      break;
+    case 4: // L2
+    case 5: // R2
+    {
+      for (int i = 0; i < touch.reportNum; i++) {
+        if (touch.report[i].y < 1088/2) {
+          if (touch.report[i].x < 1920/2) {
+            if (axis == 4)
+              val = 1.0f;
+          } else {
+            if (axis == 5)
+              val = 1.0f;
+          }
+        }
+      }
+    }
+  }
+
+  joystickValues[axis] = val;
+  if (fabsf(joystickValues[axis]) < 0.25)
+    joystickValues[axis] = 0.0f;
+
+  return joystickValues[axis];
+}
+
+uint32_t GetJoystickButtons(void) {
+  uint32_t mask = 0;
+
+  SceCtrlData pad;
+  sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
+
+  SceTouchData touch;
+  sceTouchPeek(0, &touch, 1);
+
+  if (pad.buttons & SCE_CTRL_CROSS)
+    mask |= 0x1;
+  if (pad.buttons & SCE_CTRL_CIRCLE)
+    mask |= 0x2;
+  if (pad.buttons & SCE_CTRL_SQUARE)
+    mask |= 0x4;
+  if (pad.buttons & SCE_CTRL_TRIANGLE)
+    mask |= 0x8;
+  if (pad.buttons & SCE_CTRL_START)
+    mask |= 0x10;
+  if (pad.buttons & SCE_CTRL_SELECT)
+    mask |= 0x20;
+  if (pad.buttons & SCE_CTRL_L1)
+    mask |= 0x40;
+  if (pad.buttons & SCE_CTRL_R1)
+    mask |= 0x80;
+  if (pad.buttons & SCE_CTRL_UP)
+    mask |= 0x100;
+  if (pad.buttons & SCE_CTRL_DOWN)
+    mask |= 0x200;
+  if (pad.buttons & SCE_CTRL_LEFT)
+    mask |= 0x400;
+  if (pad.buttons & SCE_CTRL_RIGHT)
+    mask |= 0x800;
+
+  for (int i = 0; i < touch.reportNum; i++) {
+    if (touch.report[i].y > 1088/2) {
+      if (touch.report[i].x < 1920/2)
+        mask |= 0x1000; // L3
+      else
+        mask |= 0x2000; // R3
+    }
+  }
+
+  return mask;
 }
 
 void functions_patch() {
@@ -620,6 +706,7 @@ void functions_patch() {
   hook_arm(find_addr_by_symbol("_Z16StopAndroidMoviev"), (uintptr_t)ret0);
 
   hook_arm(find_addr_by_symbol("_Z20GetJoystickAxisValuei"), (uintptr_t)GetJoystickAxisValue);
+  hook_arm(find_addr_by_symbol("_Z18GetJoystickButtonsv"), (uintptr_t)GetJoystickButtons);
 
   hook_arm(find_addr_by_symbol("_Z15AcquireWakeLockv"), (uintptr_t)ret0);
   hook_arm(find_addr_by_symbol("_Z15ReleaseWakeLockv"), (uintptr_t)ret0);
@@ -1388,8 +1475,12 @@ int main() {
   *(uint8_t *)find_addr_by_symbol("IsInitGraphics") = 1;
   *(uint32_t *)find_addr_by_symbol("androidScreenWidth") = 960;
   *(uint32_t *)find_addr_by_symbol("androidScreenHeight") = 544;
+  joystickValues = (float *)find_addr_by_symbol("joystickValues");
 
   NVEventEGLInit();
+
+  uint32_t (* ShowJoystick)(int show) = (void *)find_addr_by_symbol("_Z12ShowJoystickb");
+  ShowJoystick(0);
 
   int (* NVEventAppMain)(int argc, char *argv[]) = (void *)find_addr_by_symbol("_Z14NVEventAppMainiPPc");
   NVEventAppMain(0, NULL);
