@@ -710,6 +710,8 @@ void functions_patch() {
 
   hook_arm(find_addr_by_symbol("_Z15AcquireWakeLockv"), (uintptr_t)ret0);
   hook_arm(find_addr_by_symbol("_Z15ReleaseWakeLockv"), (uintptr_t)ret0);
+
+  hook_arm(find_addr_by_symbol("_Z14SendSocialClubiPKc"), (uintptr_t)ret0);
 }
 
 extern int _Znwj;
