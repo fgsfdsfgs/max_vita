@@ -5,18 +5,18 @@ void main(
   uniform half4 AmbientColor,
   uniform half4 PointLightPosition,
   uniform half4 PointLightColor,
-  uniform half4 PointLightAttenuation,
+  uniform half3 PointLightAttenuation,
   uniform half4 PointLight2Position,
   uniform half4 PointLight2Color,
-  uniform half4 PointLight2Attenuation,
+  uniform half3 PointLight2Attenuation,
   uniform float4x4 WorldToView,
   uniform float4x4 ObjToWorld,
   half2 out Out_Tex0 : TEXCOORD0,
   fixed4 out Out_Color0 : COLOR0,
   float4 out gl_Position : POSITION
 ) {
-  float4 WorldPos = mul(float4(Position, 1.0), ObjToWorld);
-  gl_Position = mul(WorldPos, WorldToView);
+  float4 WorldPos = mul(float4(Position, 1.0), transpose(ObjToWorld));
+  gl_Position = mul(transpose(WorldToView), WorldPos);
 
   Out_Tex0 = TexCoord0 * 0.00390625; // 1 / 256.0
 

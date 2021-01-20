@@ -5,5 +5,5 @@ fixed4 main(
 ) : COLOR {
   fixed3 sceneColor = tex2D(Diffuse, Out_Tex0).xyz;
   fixed factor = min((length(sceneColor) - ColorMult.x) * ColorMult.y, ColorMult.z);
-  return vec4(sceneColor * factor, 1.0);
+  return fixed4(sceneColor * factor, 1.0);
 }
