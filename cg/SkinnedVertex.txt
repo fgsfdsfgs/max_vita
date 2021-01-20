@@ -41,15 +41,15 @@ void main(
   LocalToBone[1] += Bones[BlendIndexArray.w*3+1] * BoneWeights.w;
   LocalToBone[2] += Bones[BlendIndexArray.w*3+2] * BoneWeights.w;
 
-  float4 BonePos = mul(float4(Position, 1), transpose(LocalToBone));
-  float4 WorldPos = mul(BonePos, transpose(ObjToWorld));
-  float4 ViewPos = mul(transpose(WorldToView), WorldPos);
+  float4 BonePos = mul(LocalToBone, float4(Position, 1));
+  float4 WorldPos = mul(ObjToWorld, BonePos);
+  float4 ViewPos = mul(WorldPos, WorldToView);
   gl_Position = ViewPos;
 
   Out_Tex0 = TexCoord0 * 0.00390625; // 1 / 256.0
 
   // Normal
-  float3 WorldNormal = mul(mul(float4(Normal, 0), transpose(LocalToBone)), transpose(ObjToWorld)).xyz;
+  float3 WorldNormal = mul(ObjToWorld, mul(LocalToBone, float4(Normal, 0))).xyz;
 
   // Point Light
   float3 LightToVertex = PointLightPosition.xyz - WorldPos.xyz;
