@@ -906,6 +906,14 @@ __attribute__((naked)) void glClearDepthfWrapper(GLfloat d) {
   );
 }
 
+__attribute__((naked)) void glDepthRangefWrapper(GLfloat near, GLfloat far) {
+  asm volatile (
+    "vmov s0, r0\n"
+    "vmov s1, r1\n"
+    "b glDepthRangef\n"
+  );
+}
+
 __attribute__((naked)) void glUniform1fWrapper(GLint location, GLfloat v) {
   asm volatile (
     "vmov s0, r1\n"
@@ -1192,7 +1200,7 @@ DynLibFunction dynlib_functions[] = {
   { "glDeleteTextures", (uintptr_t)&glDeleteTextures },
   { "glDepthFunc", (uintptr_t)&glDepthFunc },
   { "glDepthMask", (uintptr_t)&glDepthMask },
-  { "glDepthRangef", (uintptr_t)&glDepthRangef },
+  { "glDepthRangef", (uintptr_t)&glDepthRangefWrapper },
   { "glDisable", (uintptr_t)&glDisable },
   { "glDisableVertexAttribArray", (uintptr_t)&glDisableVertexAttribArray },
   { "glDrawArrays", (uintptr_t)&glDrawArrays },
@@ -1225,7 +1233,7 @@ DynLibFunction dynlib_functions[] = {
   { "glScissor", (uintptr_t)&glScissor },
   { "glShaderSource", (uintptr_t)&glShaderSource },
   { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
-  { "glTexParameterf", (uintptr_t)&glTexParameterf },
+  { "glTexParameterf", (uintptr_t)&glTexParameterfWrapper },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
   { "glUniform1f", (uintptr_t)&glUniform1fWrapper },
   { "glUniform1fv", (uintptr_t)&glUniform1fv },
