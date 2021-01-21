@@ -1,14 +1,3 @@
-/*
-  TODO:
-  - Fix street lamps
-  - Fix hud elements (touch buttons)
-    - Some compressed textures are not supported
-  - Implement touch
-  - Use math neon
-  - Use 4th core
-  - Optimize bones matrix
-*/
-
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/kernel/sysmem.h>
@@ -200,29 +189,6 @@ char *GetRockstarID() {
   return "flow";
 }
 
-int OS_SystemChip() {
-  return 0;
-}
-
-int AND_DeviceType() {
-  // 0x1: phone
-  // 0x2: tegra
-  // low memory is < 256
-  return (MEMORY_MB << 6) | (3 << 2) | 0x1;
-}
-
-int AND_DeviceLocale() {
-  return 0; // english
-}
-
-int OS_ScreenGetHeight() {
-  return 544;
-}
-
-int OS_ScreenGetWidth() {
-  return 960;
-}
-
 int ProcessEvents() {
   return 0; // 1 is exit!
 }
@@ -382,60 +348,6 @@ int pthread_create_fake(pthread_t *thread, const void *unused, void *entry, void
   return pthread_create(thread, NULL, entry, arg);
 }
 
-int thread_stub(SceSize args, int *argp) {
-  int (* func)(void *arg) = (void *)argp[0];
-  void *arg = (void *)argp[1];
-  char *out = (char *)argp[2];
-  out[0x41] = 1; // running
-  return func(arg);
-}
-
-// OS_ThreadLaunch CdStream with priority 6b
-// OS_ThreadLaunch Es2Thread with priority 40
-// OS_ThreadLaunch MainThread with priority 5a
-// OS_ThreadLaunch BankLoader with priority bf
-// OS_ThreadLaunch StreamThread with priority 6b
-void *OS_ThreadLaunch(int (* func)(), void *arg, int r2, char *name, int r4, int priority) {
-  int min_priority = 191;
-  int max_priority = 64;
-  int vita_priority;
-
-  switch (priority) {
-    case 0:
-      vita_priority = min_priority;
-      break;
-    case 1:
-      vita_priority = min_priority - 2 * (min_priority - max_priority) / 3;
-      break;
-    case 2:
-      vita_priority = min_priority - 4 * (min_priority - max_priority) / 5;
-      break;
-    case 3:
-      vita_priority = max_priority;
-      break;
-    default:
-      vita_priority = 0x10000100;
-      break;
-  }
-
-  // debugPrintf("OS_ThreadLaunch %s with priority %x\n", name, vita_priority);
-
-  SceUID thid = sceKernelCreateThread(name, (SceKernelThreadEntry)thread_stub, vita_priority, 1 * 1024 * 1024, 0, 0, NULL);
-  if (thid >= 0) {
-    char *out = malloc(0x48);
-
-    uintptr_t args[3];
-    args[0] = (uintptr_t)func;
-    args[1] = (uintptr_t)arg;
-    args[2] = (uintptr_t)out;
-    sceKernelStartThread(thid, sizeof(args), args);
-
-    return out;
-  }
-
-  return NULL;
-}
-
 SceUID pigID;
 
 EGLDisplay display = NULL;
@@ -492,16 +404,6 @@ int NVEventEGLInit(void) {
   debugPrintf("GL_EXTENSIONS: %s\n", glGetString(GL_EXTENSIONS));
 
   return 1; // success
-}
-
-#define APK_PATH "main.obb"
-
-char *OS_FileGetArchiveName(int mode) {
-  char *out = malloc(strlen(APK_PATH) + 1);
-  out[0] = '\0';
-  if (mode == 1) // main
-    strcpy(out, APK_PATH);
-  return out;
 }
 
 FILE *fopen_hook(const char *filename, const char *mode) {
@@ -700,6 +602,8 @@ void functions_patch() {
 
   hook_arm(find_addr_by_symbol("_Z20GetJoystickAxisValuei"), (uintptr_t)GetJoystickAxisValue);
   hook_arm(find_addr_by_symbol("_Z18GetJoystickButtonsv"), (uintptr_t)GetJoystickButtons);
+
+  hook_arm(find_addr_by_symbol("_Z12VibratePhonei"), (uintptr_t)ret0);
 
   hook_arm(find_addr_by_symbol("_Z15AcquireWakeLockv"), (uintptr_t)ret0);
   hook_arm(find_addr_by_symbol("_Z15ReleaseWakeLockv"), (uintptr_t)ret0);
