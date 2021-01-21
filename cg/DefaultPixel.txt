@@ -6,8 +6,9 @@ fixed4 main(
   // float4 Out_ScreenPos : WPOS,
   uniform sampler2D Diffuse,
   uniform half AlphaRef
+  PREFIX
 ) : COLOR {
-  fixed4 gl_FragColor = TEX2D_MIPSAMPLE(Diffuse, Out_Tex0) * Out_Color0;
+  SETFRAGCOLOR TEX2D_MIPSAMPLE(Diffuse, Out_Tex0) * Out_Color0;
   ALPHAKILL
   return gl_FragColor;
 }

@@ -8,43 +8,25 @@
 #include "config.h"
 
 uintptr_t find_addr_by_symbol(char *symbol);
-void hook_arm(uintptr_t addr, uintptr_t dst);
 void debugPrintf(const char *fmt, ...);
 
 extern void *text_base;
 
-static const char *cg_mipmap[] = {
+static const char *cg_mipmapReplace[] = {
+  "#define TEX2D_MIPSAMPLE(samp, uv) tex2Dbias(samp, half4(uv, 0.0, -1.0))",
   "#define TEX2D_MIPSAMPLE(samp, uv) tex2D(samp, uv)",
-  "#define TEX2D_MIPSAMPLE(samp, uv) tex2Dbias(samp, half4(uv, 0.0, 1.0))"
+  "#define TEX2D_MIPSAMPLE(samp, uv) tex2Dbias(samp, half4(uv, 0.0, 1.0))",
 };
 
-uint32_t ReplaceStringHack(char *buf, const char *what, const char *withwhat) {
-  // this function is only used in the "shader patcher" to replace a few keywords with
-  // common code blocks
+static const char *cg_fragColorReplace[] = {
+  "fixed4 gl_FragColor = ",
+  "fixed4 gl_FragColor = fixed4(ColorAdd, 0.0) + ",
+};
 
-  if (!strcmp(what, "MIPMAP")) {
-    // this originally added `, -1.0` to the texture2D call, which adds mipmap level bias
-    // the cg version of that is tex2Dbias, which takes the bias in uv.w
-    // in cg shaders we use a macro instead
-    withwhat = cg_mipmap[(withwhat[0] != '\0')];
-  }
-
-  // SETFRAGCOLOR, PREFIX are not used in cg shaders
-
-  char *found = strstr(buf, what);
-  if (found) {
-    char tmp[0x800];
-    const int oldsize = strlen(what);
-    const int newsize = strlen(withwhat);
-    char *rest = found + oldsize;
-    const int restsize = strlen(rest);
-    memcpy(tmp, withwhat, newsize + 1);
-    memcpy(tmp + newsize, rest, restsize + 1);
-    memcpy(found, tmp, (found - buf) + newsize + restsize + 1);
-  }
-
-  return 0;
-}
+static const char *cg_colorReplace[] = {
+  "",
+  ", uniform half3 ColorAdd"
+};
 
 void opengl_patch() {
   // load cg shaders from a separate folder for convenience
@@ -52,5 +34,10 @@ void opengl_patch() {
   kuKernelCpuUnrestrictedMemcpy((char *)text_base + 0xb08564, "../cg/", 7);
   kuKernelCpuUnrestrictedMemcpy((char *)text_base + 0xb08598, "cg/", 4);
 
-  hook_arm(find_addr_by_symbol("_Z13ReplaceStringPcPKcS1_"), (uintptr_t)ReplaceStringHack);
+  // the game replaces some keywords in shaders with common code blocks to generate variants
+  // replace the string replacements
+  memcpy((void *)find_addr_by_symbol("mipmapReplace"), cg_mipmapReplace, sizeof(cg_mipmapReplace));
+  memcpy((void *)find_addr_by_symbol("fragColorReplace"), cg_fragColorReplace, sizeof(cg_fragColorReplace));
+  memcpy((void *)find_addr_by_symbol("colorReplace"), cg_colorReplace, sizeof(cg_colorReplace));
+  // memcpy((void *)find_addr_by_symbol("alphaTestReplace"), cg_alphaTestReplace, sizeof(cg_alphaTestReplace)); // original works in cg
 }

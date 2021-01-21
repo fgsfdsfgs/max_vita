@@ -2,6 +2,8 @@ fixed4 main(
   half2 Out_Tex0 : TEXCOORD0,
   fixed4 Out_Color0 : COLOR0,
   uniform sampler2D Diffuse
+  PREFIX
 ) : COLOR {
-  return tex2D(Diffuse, Out_Tex0) * Out_Color0;
+  SETFRAGCOLOR tex2D(Diffuse, Out_Tex0) * Out_Color0;
+  return gl_FragColor;
 }
