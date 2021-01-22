@@ -38,6 +38,10 @@
 #include "config.h"
 
 #define MEMORY_MB 256
+#define DATA_PATH "ux0:data"
+#define DATA_DIR "maxpayne"
+#define LIB_PATH DATA_PATH "/" DATA_DIR "/" "libMaxPayne.so"
+#define LOG_PATH DATA_PATH "/" DATA_DIR "/" "max_log.txt"
 
 int sceLibcHeapSize = 8 * 1024 * 1024;
 
@@ -64,7 +68,7 @@ int debugPrintf(char *text, ...) {
   vsprintf(string, text, list);
   va_end(list);
 
-  SceUID fd = sceIoOpen("ux0:data/max_log.txt", SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0777);
+  SceUID fd = sceIoOpen(LOG_PATH, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0777);
   if (fd >= 0) {
     sceIoWrite(fd, string, strlen(string));
     sceIoClose(fd);
@@ -470,15 +474,50 @@ void GetDisplayInfo(DisplayInfo *info) {
   info->diagonalInches = sqrtf(info->widthInches * info->widthInches + info->heightInches * info->heightInches) / info->density;
 }
 
-int ReadDataFromPrivateStorage(char *file, void **data, int *size) {
-  debugPrintf("ReadDataFromPrivateStorage %s\n", file);
-  // *data = malloc(1024);
-  return 0;
+int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
+  char fullpath[1024];
+  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/" DATA_DIR "/%s", file);
+
+  debugPrintf("ReadDataFromPrivateStorage %s\n", fullpath);
+
+  FILE *f = fopen(fullpath, "rb");
+  if (!f) return 0;
+
+  fseek(f, 0, SEEK_END);
+  const int sz = ftell(f);
+  fseek(f, 0, SEEK_SET);
+
+  int ret = 0;
+
+  if (sz > 0) {
+    void *buf = malloc(sz);
+    if (buf && fread(buf, sz, 1, f)) {
+      ret = 1;
+      *size = sz;
+      *data = buf;
+    } else {
+      free(buf);
+    }
+  }
+
+  fclose(f);
+
+  return ret;
 }
 
-int WriteDataToPrivateStorage(char *file, void *data, int size) {
-  debugPrintf("WriteDataToPrivateStorage %s\n", file);
-  return 0;
+int WriteDataToPrivateStorage(const char *file, const void *data, int size) {
+  char fullpath[1024];
+  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/" DATA_DIR "/%s", file);
+
+  debugPrintf("WriteDataToPrivateStorage %s\n", fullpath);
+
+  FILE *f = fopen(fullpath, "wb");
+  if (!f) return 0;
+
+  const int ret = fwrite(data, size, 1, f);
+  fclose(f);
+
+  return ret;
 }
 
 float *joystickValues = NULL;
@@ -1239,7 +1278,7 @@ int main() {
   void *so_data, *prog_data;
   SceUID so_blockid, prog_blockid;
 
-  so_blockid = load_file("ux0:data/maxpayne/libMaxPayne.so", &so_data);
+  so_blockid = load_file(LIB_PATH, &so_data);
 
   Elf32_Ehdr *elf_hdr = (Elf32_Ehdr *)so_data;
   Elf32_Phdr *prog_hdrs = (Elf32_Phdr *)((uintptr_t)so_data + elf_hdr->e_phoff);
@@ -1381,7 +1420,7 @@ int main() {
 
   sceKernelFreeMemBlock(so_blockid);
 
-  strcpy((char *)find_addr_by_symbol("StorageRootBuffer"), "ux0:data");
+  strcpy((char *)find_addr_by_symbol("StorageRootBuffer"), DATA_PATH);
   *(uint8_t *)find_addr_by_symbol("IsAndroidPaused") = 0;
   *(uint32_t *)find_addr_by_symbol("cIsAndroidPaused") = 0;
   *(uint8_t *)find_addr_by_symbol("IsInitGraphics") = 1;
