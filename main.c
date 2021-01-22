@@ -609,6 +609,11 @@ void functions_patch() {
   hook_arm(find_addr_by_symbol("_Z15ReleaseWakeLockv"), (uintptr_t)ret0);
 
   hook_arm(find_addr_by_symbol("_Z14SendSocialClubiPKc"), (uintptr_t)ret0);
+
+  // stub out framebuffer effects, they cause cardiac arrest in the renderer under certain circumstances
+  hook_arm(find_addr_by_symbol("_Z19SafeBindFrameBufferj"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("_Z11DrawPPImageR11P_ES2Shaderjjjbjj"), (uintptr_t)ret0);
+  hook_arm(find_addr_by_symbol("_Z10ApplyBloomv"), (uintptr_t)ret0);
 }
 
 extern int _Znwj;
