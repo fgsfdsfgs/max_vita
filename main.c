@@ -19,6 +19,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #include <ctype.h>
 #include <fcntl.h>
@@ -37,12 +39,6 @@
 
 #include "config.h"
 
-#define MEMORY_MB 256
-#define DATA_PATH "ux0:data"
-#define DATA_DIR "maxpayne"
-#define LIB_PATH DATA_PATH "/" DATA_DIR "/" "libMaxPayne.so"
-#define LOG_PATH DATA_PATH "/" DATA_DIR "/" "max_log.txt"
-
 int sceLibcHeapSize = 8 * 1024 * 1024;
 
 int _newlib_heap_size_user = MEMORY_MB * 1024 * 1024;
@@ -59,6 +55,27 @@ static Elf32_Sym *syms;
 static int n_syms;
 
 static char *dynstrtab;
+
+extern int __aeabi_memclr;
+extern int __aeabi_memclr4;
+extern int __aeabi_memclr8;
+extern int __aeabi_memcpy;
+extern int __aeabi_memcpy4;
+extern int __aeabi_memcpy8;
+extern int __aeabi_memmove;
+extern int __aeabi_memmove4;
+extern int __aeabi_memmove8;
+extern int __aeabi_memset;
+extern int __aeabi_memset4;
+extern int __aeabi_memset8;
+
+extern int __cxa_atexit;
+extern int __cxa_guard_acquire;
+extern int __cxa_guard_release;
+extern int __gnu_unwind_frame;
+
+extern int __stack_chk_fail;
+extern int __stack_chk_guard;
 
 int debugPrintf(char *text, ...) {
   va_list list;
@@ -143,10 +160,6 @@ char *getenv(const char *name) {
   return NULL;
 }
 
-void __aeabi_atexit() {
-  return;
-}
-
 void __assert2(const char *file, int line, const char *func, const char *expr) {
   debugPrintf("assertion failed:\n%s:%d (%s): %s\n", file, line, func, expr);
   assert(0);
@@ -189,12 +202,99 @@ int mkdir(const char *pathname, mode_t mode) {
   return 0;
 }
 
-char *GetRockstarID() {
+char *GetRockstarID(void) {
   return "flow";
 }
 
-int ProcessEvents() {
+int ProcessEvents(void) {
   return 0; // 1 is exit!
+}
+
+int OS_SystemChip(void) {
+  return 0;
+}
+
+int AND_DeviceType(void) {
+  // 0x1: phone
+  // 0x2: tegra
+  // low memory is < 256
+  return (MEMORY_MB << 6) | (3 << 2) | 0x1;
+}
+
+int AND_DeviceLocale(void) {
+  return 0; // english
+}
+
+int OS_ScreenGetHeight(void) {
+  return 544;
+}
+
+int OS_ScreenGetWidth(void) {
+  return 960;
+}
+
+#define APK_PATH "main.obb"
+
+char *OS_FileGetArchiveName(int mode) {
+  char *out = malloc(strlen(APK_PATH) + 1);
+  out[0] = '\0';
+  if (mode == 1) // main
+    strcpy(out, APK_PATH);
+  return out;
+}
+
+void ExitAndroidGame(int code) {
+  // pibTerm();
+  sceKernelExitProcess(0);
+}
+
+int thread_stub(SceSize args, int *argp) {
+  int (* func)(void *arg) = (void *)argp[0];
+  void *arg = (void *)argp[1];
+  char *out = (char *)argp[2];
+  out[0x41] = 1; // running
+  return func(arg);
+}
+
+void *OS_ThreadLaunch(int (* func)(), void *arg, int r2, char *name, int r4, int priority) {
+  int min_priority = 191;
+  int max_priority = 64;
+  int vita_priority;
+
+  switch (priority) {
+    case 0:
+      vita_priority = min_priority;
+      break;
+    case 1:
+      vita_priority = min_priority - 2 * (min_priority - max_priority) / 3;
+      break;
+    case 2:
+      vita_priority = min_priority - 4 * (min_priority - max_priority) / 5;
+      break;
+    case 3:
+      vita_priority = max_priority;
+      break;
+    default:
+      vita_priority = 0x10000100;
+      break;
+  }
+
+  // debugPrintf("OS_ThreadLaunch %s with priority %x\n", name, vita_priority);
+
+  SceUID thid = sceKernelCreateThread(name, (SceKernelThreadEntry)thread_stub, vita_priority, 1 * 1024 * 1024, 0, 0, NULL);
+  if (thid >= 0) {
+    char *out = malloc(0x48);
+
+    uintptr_t args[3];
+    args[0] = (uintptr_t)func;
+    args[1] = (uintptr_t)arg;
+    args[2] = (uintptr_t)out;
+    sceKernelStartThread(thid, sizeof(args), args);
+
+    return out;
+  }
+
+  return NULL;
 }
 
 int pthread_mutex_init_fake(pthread_mutex_t **uid, const int *mutexattr) {
@@ -267,6 +367,14 @@ int sem_wait_fake(int *uid) {
   return 0;
 }
 
+int sem_trywait_fake(int *uid) {
+  SceUInt timeout = 0;
+  int res = sceKernelWaitSema(*uid, 1, &timeout);
+  if (res < 0)
+    return -1;
+  return 0;
+}
+
 int sem_destroy_fake(int *uid) {
   if (sceKernelDeleteSema(*uid) < 0)
     return -1;
@@ -323,19 +431,12 @@ int pthread_cond_wait_fake(pthread_cond_t **cnd, pthread_mutex_t **mtx) {
   return pthread_cond_wait(*cnd, *mtx);
 }
 
-int pthread_cond_timeout_np_fake(pthread_cond_t **cnd, pthread_mutex_t **mtx, uint32_t msec) {
+int pthread_cond_timedwait_fake(pthread_cond_t **cnd, pthread_mutex_t **mtx, const struct timespec *t) {
   if (!*cnd) {
     if (pthread_cond_init_fake(cnd, NULL) < 0)
       return -1;
   }
-
-  struct timeval now;
-  struct timespec abst = { 0 };
-  gettimeofday(&now, NULL);
-  abst.tv_sec = now.tv_sec + (msec / 1000);
-  abst.tv_nsec = (now.tv_usec + (msec % 1000) * 1000) * 1000;
-
-  return pthread_cond_timedwait(*cnd, *mtx, &abst);
+  return pthread_cond_timedwait(*cnd, *mtx, t);
 }
 
 int pthread_once_fake(volatile int *once_control, void (*init_routine) (void)) {
@@ -413,7 +514,7 @@ int NVEventEGLInit(void) {
 FILE *fopen_hook(const char *filename, const char *mode) {
   FILE *file = fopen(filename, mode);
   // if (!file)
-    // debugPrintf("fopen %s: %p\n", filename, file);
+  //   debugPrintf("fopen %s: %p\n", filename, file);
   return file;
 }
 
@@ -448,35 +549,9 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
   return sceKernelDelayThreadCB(usec);
 }
 
-typedef struct {
-  float density;
-  int densityDPI;
-  float scaledDensity;
-  float widthDPI;
-  float heightDPI;
-  int widthPixels;
-  int heightPixels;
-  float widthInches;
-  float heightInches;
-  float diagonalInches;
-} DisplayInfo;
-
-void GetDisplayInfo(DisplayInfo *info) {
-  memset(info, 0, sizeof(DisplayInfo));
-  info->density = 0.0f; // TODO
-  info->densityDPI = 0; // TODO
-  info->widthDPI = 0.0f; // TODO
-  info->heightDPI = 0.0f; // TODO
-  info->widthPixels = 960;
-  info->heightPixels = 544;
-  info->widthInches = (float)info->widthPixels / info->widthDPI;
-  info->heightInches = (float)info->heightPixels / info->heightDPI;
-  info->diagonalInches = sqrtf(info->widthInches * info->widthInches + info->heightInches * info->heightInches) / info->density;
-}
-
 int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
   char fullpath[1024];
-  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/" DATA_DIR "/%s", file);
+  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/%s", file);
 
   debugPrintf("ReadDataFromPrivateStorage %s\n", fullpath);
 
@@ -507,7 +582,7 @@ int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
 
 int WriteDataToPrivateStorage(const char *file, const void *data, int size) {
   char fullpath[1024];
-  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/" DATA_DIR "/%s", file);
+  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/%s", file);
 
   debugPrintf("WriteDataToPrivateStorage %s\n", fullpath);
 
@@ -520,47 +595,18 @@ int WriteDataToPrivateStorage(const char *file, const void *data, int size) {
   return ret;
 }
 
-float *joystickValues = NULL;
-
-float GetJoystickAxisValue(int axis) {
-  SceCtrlData pad;
-  sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
-
-  SceTouchData touch;
-  sceTouchPeek(0, &touch, 1);
-
-  float val = 0.0f;
-
-  switch (axis) {
-    case 0:
-      val = ((float)pad.lx - 128.0f) / 128.0f;
-      break;
-    case 1:
-      val = ((float)pad.ly - 128.0f) / -128.0f;
-      break;
-    case 2:
-      val = ((float)pad.rx - 128.0f) / 128.0f;
-      break;
-    case 3:
-      val = ((float)pad.ry - 128.0f) / -128.0f;
-      break;
-    case 4: // L2
-      val = (pad.buttons & SCE_CTRL_L1) ? 1.0f : 0.0f;
-      break;
-    case 5: // R2
-      val = (pad.buttons & SCE_CTRL_R1) ? 1.0f : 0.0f;
-      break;
-  }
-
-  joystickValues[axis] = val;
-  if (fabsf(joystickValues[axis]) < 0.25f)
-    joystickValues[axis] = 0.0f;
-
-  return joystickValues[axis];
+// 0, 5, 6: XBOX 360
+// 4: MogaPocket
+// 7: MogaPro
+// 8: PS3
+// 9: IOSExtended
+// 10: IOSSimple
+int WarGamepad_GetGamepadType(int padnum) {
+  return 8;
 }
 
-uint32_t GetJoystickButtons(void) {
-  uint32_t mask = 0;
+int WarGamepad_GetGamepadButtons(int padnum) {
+  int mask = 0;
 
   SceCtrlData pad;
   sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
@@ -580,20 +626,19 @@ uint32_t GetJoystickButtons(void) {
     mask |= 0x10;
   if (pad.buttons & SCE_CTRL_SELECT)
     mask |= 0x20;
-  // if (pad.buttons & SCE_CTRL_L1)
-  //   mask |= 0x40;
-  // if (pad.buttons & SCE_CTRL_R1)
-  //   mask |= 0x80;
+  if (pad.buttons & SCE_CTRL_L1)
+    mask |= 0x40;
+  if (pad.buttons & SCE_CTRL_R1)
+    mask |= 0x80;
   if (pad.buttons & SCE_CTRL_UP)
     mask |= 0x100;
   if (pad.buttons & SCE_CTRL_DOWN)
     mask |= 0x200;
   if (pad.buttons & SCE_CTRL_LEFT)
-    mask |= 0x400 | 0x40; // also press L1
+    mask |= 0x400;
   if (pad.buttons & SCE_CTRL_RIGHT)
-    mask |= 0x800 | 0x80; // also press R1
+    mask |= 0x800;
 
-/*
   for (int i = 0; i < touch.reportNum; i++) {
     if (touch.report[i].y > 1088/2) {
       if (touch.report[i].x < 1920/2)
@@ -602,199 +647,141 @@ uint32_t GetJoystickButtons(void) {
         mask |= 0x2000; // R3
     }
   }
-*/
 
   return mask;
 }
 
+float WarGamepad_GetGamepadAxis(int padnum, int axis) {
+  SceCtrlData pad;
+  sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
+
+  SceTouchData touch;
+  sceTouchPeek(0, &touch, 1);
+
+  float val = 0.0f;
+
+  switch (axis) {
+    case 0:
+      val = ((float)pad.lx - 128.0f) / 128.0f;
+      break;
+    case 1:
+      val = ((float)pad.ly - 128.0f) / 128.0f;
+      break;
+    case 2:
+      val = ((float)pad.rx - 128.0f) / 128.0f;
+      break;
+    case 3:
+      val = ((float)pad.ry - 128.0f) / 128.0f;
+      break;
+    case 4: // L2
+    case 5: // R2
+    {
+      for (int i = 0; i < touch.reportNum; i++) {
+        if (touch.report[i].y < 1088/2) {
+          if (touch.report[i].x < 1920/2) {
+            if (axis == 4)
+              val = 1.0f;
+          } else {
+            if (axis == 5)
+              val = 1.0f;
+          }
+        }
+      }
+    }
+  }
+
+  if (fabsf(val) > 0.2f)
+    return val;
+
+  return 0.0f;
+}
+
 void functions_patch() {
+  hook_thumb(find_addr_by_symbol("__cxa_guard_acquire"), (uintptr_t)&__cxa_guard_acquire);
+  hook_thumb(find_addr_by_symbol("__cxa_guard_release"), (uintptr_t)&__cxa_guard_release);
+
+  // used for openal
+  hook_thumb(find_addr_by_symbol("InitializeCriticalSection"), (uintptr_t)ret0);
+
+  // used to check some flags
+  hook_thumb(find_addr_by_symbol("_Z20OS_ServiceAppCommandPKcS0_"), (uintptr_t)ret0);
+
+  hook_thumb(find_addr_by_symbol("_Z15OS_ThreadLaunchPFjPvES_jPKci16OSThreadPriority"), (uintptr_t)OS_ThreadLaunch);
+
+  // this is checked on startup
+  hook_thumb(find_addr_by_symbol("_Z25OS_ServiceIsWifiAvailablev"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z28OS_ServiceIsNetworkAvailablev"), (uintptr_t)ret0);
+
+  hook_thumb(find_addr_by_symbol("_Z18OS_ServiceOpenLinkPKc"), (uintptr_t)ret0);
+
+  // don't have movie playback yet
+  hook_thumb(find_addr_by_symbol("_Z12OS_MoviePlayPKcbbf"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z12OS_MovieStopv"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z20OS_MovieSetSkippableb"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z17OS_MovieTextScalei"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z17OS_MovieIsPlayingPi"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z20OS_MoviePlayinWindowPKciiiibbf"), (uintptr_t)ret0);
+
   // egl
-  hook_arm(find_addr_by_symbol("_Z14NVEventEGLInitv"), (uintptr_t)NVEventEGLInit);
-  hook_arm(find_addr_by_symbol("_Z21NVEventEGLMakeCurrentv"), (uintptr_t)NVEventEGLMakeCurrent);
-  hook_arm(find_addr_by_symbol("_Z23NVEventEGLUnmakeCurrentv"), (uintptr_t)NVEventEGLUnmakeCurrent);
-  hook_arm(find_addr_by_symbol("_Z21NVEventEGLSwapBuffersv"), (uintptr_t)NVEventEGLSwapBuffers);
+  hook_thumb(find_addr_by_symbol("_Z14NVEventEGLInitv"), (uintptr_t)NVEventEGLInit);
+  hook_thumb(find_addr_by_symbol("_Z21NVEventEGLMakeCurrentv"), (uintptr_t)NVEventEGLMakeCurrent);
+  hook_thumb(find_addr_by_symbol("_Z23NVEventEGLUnmakeCurrentv"), (uintptr_t)NVEventEGLUnmakeCurrent);
+  hook_thumb(find_addr_by_symbol("_Z21NVEventEGLSwapBuffersv"), (uintptr_t)NVEventEGLSwapBuffers);
 
   // TODO: implement touch here
-  hook_arm(find_addr_by_symbol("_Z13ProcessEventsb"), (uintptr_t)ProcessEvents);
+  hook_thumb(find_addr_by_symbol("_Z13ProcessEventsb"), (uintptr_t)ProcessEvents);
 
-  hook_arm(find_addr_by_symbol("NVThreadGetCurrentJNIEnv"), (uintptr_t)0x1337);
+  hook_thumb(find_addr_by_symbol("_Z24NVThreadGetCurrentJNIEnvv"), (uintptr_t)0x1337);
 
   // uint16_t bkpt = 0xbe00;
   // kuKernelCpuUnrestrictedMemcpy(text_base + 0x00194968, &bkpt, 2);
 
-  hook_arm(find_addr_by_symbol("_Z25GetAndroidCurrentLanguagev"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("_Z13SetScreenViewib"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("NvAPKOpen"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z25GetAndroidCurrentLanguagev"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z9NvAPKOpenPKc"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z22AND_FileGetArchiveName13OSFileArchive"), (uintptr_t)OS_FileGetArchiveName);
 
-  // Use for UseBloom
-  hook_arm(find_addr_by_symbol("_Z13OS_DeviceTypev"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z17OS_ScreenGetWidthv"), (uintptr_t)OS_ScreenGetWidth);
+  hook_thumb(find_addr_by_symbol("_Z18OS_ScreenGetHeightv"), (uintptr_t)OS_ScreenGetHeight);
 
+  hook_thumb(find_addr_by_symbol("_Z13OS_SystemChipv"), (uintptr_t)OS_SystemChip);
 
-  hook_arm(find_addr_by_symbol("_Z14GetDisplayInfov"), (uintptr_t)GetDisplayInfo);
+  hook_thumb(find_addr_by_symbol("_Z14AND_DeviceTypev"), (uintptr_t)AND_DeviceType);
+  hook_thumb(find_addr_by_symbol("_Z16AND_DeviceLocalev"), (uintptr_t)AND_DeviceLocale);
 
-  hook_arm(find_addr_by_symbol("_Z26ReadDataFromPrivateStoragePKcRPcRi"), (uintptr_t)ReadDataFromPrivateStorage);
-  hook_arm(find_addr_by_symbol("_Z25WriteDataToPrivateStoragePKcS0_i"), (uintptr_t)WriteDataToPrivateStorage);
+  // TODO: set deviceChip, definedDevice
+  hook_thumb(find_addr_by_symbol("_Z20AND_SystemInitializev"), (uintptr_t)ret0);
 
-  hook_arm(find_addr_by_symbol("_Z16PlayAndroidMoviePKcfb"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("_Z21IsAndroidMoviePlayingv"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("_Z16StopAndroidMoviev"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z21AND_ScreenSetWakeLockb"), (uintptr_t)ret0);
 
-  hook_arm(find_addr_by_symbol("_Z20GetJoystickAxisValuei"), (uintptr_t)GetJoystickAxisValue);
-  hook_arm(find_addr_by_symbol("_Z18GetJoystickButtonsv"), (uintptr_t)GetJoystickButtons);
+  hook_thumb(find_addr_by_symbol("_Z26ReadDataFromPrivateStoragePKcRPcRi"), (uintptr_t)ReadDataFromPrivateStorage);
+  hook_thumb(find_addr_by_symbol("_Z25WriteDataToPrivateStoragePKcS0_i"), (uintptr_t)WriteDataToPrivateStorage);
 
-  hook_arm(find_addr_by_symbol("_Z12VibratePhonei"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z25WarGamepad_GetGamepadTypei"), (uintptr_t)WarGamepad_GetGamepadType);
+  hook_thumb(find_addr_by_symbol("_Z28WarGamepad_GetGamepadButtonsi"), (uintptr_t)WarGamepad_GetGamepadButtons);
+  hook_thumb(find_addr_by_symbol("_Z25WarGamepad_GetGamepadAxisii"), (uintptr_t)WarGamepad_GetGamepadAxis);
 
-  hook_arm(find_addr_by_symbol("_Z15AcquireWakeLockv"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("_Z15ReleaseWakeLockv"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z12VibratePhonei"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z14Mobile_Vibratei"), (uintptr_t)ret0);
 
-  hook_arm(find_addr_by_symbol("_Z14SendSocialClubiPKc"), (uintptr_t)ret0);
+  // no touchsense
+  hook_thumb(find_addr_by_symbol("_ZN10TouchSenseC2Ev"), (uintptr_t)ret0);
 
   // stub out framebuffer effects, they cause cardiac arrest in the renderer under certain circumstances
-  hook_arm(find_addr_by_symbol("_Z19SafeBindFrameBufferj"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("_Z11DrawPPImageR11P_ES2Shaderjjjbjj"), (uintptr_t)ret0);
-  hook_arm(find_addr_by_symbol("_Z10ApplyBloomv"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z19SafeBindFrameBufferj"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z11DrawPPImageR11P_ES2Shaderjjjbjj"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z10ApplyBloomv"), (uintptr_t)ret0);
+
+  hook_thumb(find_addr_by_symbol("_Z15ExitAndroidGamev"), (uintptr_t)ExitAndroidGame);
 }
-
-extern int _Znwj;
-extern int _ZdlPv;
-extern int _Znaj;
-extern int _ZdaPv;
-extern int __dso_handle;
-
-extern int __cxa_atexit;
-extern int __gnu_unwind_frame;
-
-// extern int __aeabi_atexit;
-
-extern int __aeabi_dcmplt;
-extern int __aeabi_dmul;
-extern int __aeabi_dsub;
-extern int __aeabi_idiv;
-extern int __aeabi_idivmod;
-extern int __aeabi_l2d;
-extern int __aeabi_l2f;
-extern int __aeabi_ldivmod;
-extern int __aeabi_ui2d;
-extern int __aeabi_uidiv;
-extern int __aeabi_uidivmod;
-extern int __aeabi_ul2d;
-extern int __aeabi_ul2f;
-extern int __aeabi_uldivmod;
-extern int __aeabi_d2f;
-extern int __aeabi_d2uiz;
-extern int __aeabi_dadd;
-extern int __aeabi_dcmpeq;
-extern int __aeabi_dcmpgt;
-extern int __aeabi_ddiv;
-extern int __aeabi_f2d;
-extern int __aeabi_fcmpeq;
-extern int __aeabi_fcmpgt;
-extern int __aeabi_fcmpun;
-
-// extern int __assert2;
-// extern int __errno;
-
-extern int __isfinitef;
-
-extern int __stack_chk_fail;
-extern int __stack_chk_guard;
-
-extern int _Unwind_Complete;
-extern int _Unwind_DeleteException;
-extern int _Unwind_GetDataRelBase;
-extern int _Unwind_GetLanguageSpecificData;
-extern int _Unwind_GetRegionStart;
-extern int _Unwind_GetTextRelBase;
-extern int _Unwind_RaiseException;
-extern int _Unwind_Resume;
-extern int _Unwind_Resume_or_Rethrow;
-extern int _Unwind_VRS_Get;
-extern int _Unwind_VRS_Set;
-
-static const short _C_toupper_[] = {
-  -1,
-  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-  0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-  0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-  0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
-  0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
-  0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
-  0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
-  0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
-  0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
-  0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
-  0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
-  0x60, 'A',  'B',  'C',  'D',  'E',  'F',  'G',
-  'H',  'I',  'J',  'K',  'L',  'M',  'N',  'O',
-  'P',  'Q',  'R',  'S',  'T',  'U',  'V',  'W',
-  'X',  'Y',  'Z',  0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
-  0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
-  0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
-  0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
-  0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
-  0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
-  0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
-  0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
-  0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
-  0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
-  0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
-  0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
-  0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
-  0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
-  0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
-  0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
-  0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
-};
-
-static const short _C_tolower_[] = {
-  -1,
-  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-  0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-  0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-  0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-  0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
-  0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
-  0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
-  0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
-  0x40, 'a',  'b',  'c',  'd',  'e',  'f',  'g',
-  'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
-  'p',  'q',  'r',  's',  't',  'u',  'v',  'w',
-  'x',  'y',  'z',  0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
-  0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
-  0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
-  0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
-  0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
-  0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
-  0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
-  0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
-  0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
-  0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
-  0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
-  0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
-  0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
-  0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
-  0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
-  0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
-  0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
-  0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
-  0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
-  0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
-  0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
-};
-
-const short *_toupper_tab_ = _C_toupper_;
-const short *_tolower_tab_ = _C_tolower_;
 
 char *__ctype_ = (char *)&_ctype_;
 
 // this is supposed to be an array of FILEs, which have a different size in libMaxPayne
 // instead use it to determine whether it's trying to print to stdout/stderr
-#define MP_FILE_STRUCT_SIZE 0x54
-uint8_t fake_sF[MP_FILE_STRUCT_SIZE * 3]; // stdout, stderr, stdin
+uint8_t fake_sF[0x300]; // stdout, stderr, stdin
 
 static inline FILE *get_actual_stream(uint8_t *stream) {
-  if (stream >= fake_sF && stream < fake_sF + MP_FILE_STRUCT_SIZE * 3)
+  if ((uintptr_t)stream == 0x1337 || (stream >= fake_sF && stream < fake_sF + 0x300))
     return stdout;
   return (FILE *)stream;
 }
@@ -905,7 +892,7 @@ void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, G
   static char srcbuf[0x2000];
   GLsizei len = 0;
   glGetShaderSource(shader, sizeof(srcbuf), &len, srcbuf);
-  if (len > 0) printf("\nshader source:\n%s\n", srcbuf);
+  if (len > 0) debugPrintf("\nshader source:\n%s\n", srcbuf);
   glGetShaderInfoLog(shader, maxLength, length, infoLog);
   debugPrintf("shader info log:\n%s\n", infoLog);
 }
@@ -915,6 +902,8 @@ void glGetProgramInfoLogHook(GLuint program, GLsizei maxLength, GLsizei *length,
   debugPrintf("program info log:\n%s\n", infoLog);
 }
 
+FILE *stderr_fake = (FILE *)0x1337;
+
 typedef struct {
   char *symbol;
   uintptr_t func;
@@ -922,22 +911,26 @@ typedef struct {
 } DynLibFunction;
 
 DynLibFunction dynlib_functions[] = {
-  { "_Znwj", (uintptr_t)&_Znwj },
-  { "_ZdlPv", (uintptr_t)&_ZdlPv },
-  { "_Znaj", (uintptr_t)&_Znaj },
-  { "_ZdaPv", (uintptr_t)&_ZdaPv },
-  { "__dso_handle", (uintptr_t)&__dso_handle },
   { "__sF", (uintptr_t)&fake_sF },
   { "__cxa_atexit", (uintptr_t)&__cxa_atexit },
-  { "__gnu_unwind_frame", (uintptr_t)&__gnu_unwind_frame },
 
-  { "_tolower_tab_", (uintptr_t)&_tolower_tab_ },
-  { "_toupper_tab_", (uintptr_t)&_toupper_tab_ },
+  { "stderr", (uintptr_t)&stderr_fake },
 
-  { "EnterGameFromSCFunc", (uintptr_t)&EnterGameFromSCFunc },
-  { "SigningOutfromApp", (uintptr_t)&SigningOutfromApp },
-  { "_Z15EnterSocialCLubv", (uintptr_t)ret0 },
-  { "_Z12IsSCSignedInv", (uintptr_t)ret0 },
+  { "__aeabi_memclr", (uintptr_t)&__aeabi_memclr },
+  { "__aeabi_memclr8", (uintptr_t)&__aeabi_memclr8 },
+  { "__aeabi_memcpy", (uintptr_t)&__aeabi_memcpy },
+  { "__aeabi_memcpy4", (uintptr_t)&__aeabi_memcpy4 },
+  { "__aeabi_memmove", (uintptr_t)&__aeabi_memmove },
+  { "__aeabi_memmove4", (uintptr_t)&__aeabi_memmove4 },
+  { "__aeabi_memset", (uintptr_t)&__aeabi_memset },
+
+  { "AAssetManager_open", (uintptr_t)&ret0 },
+  { "AAssetManager_fromJava", (uintptr_t)&ret0 },
+  { "AAsset_close", (uintptr_t)&ret0 },
+  { "AAsset_getLength", (uintptr_t)&ret0 },
+  { "AAsset_getRemainingLength", (uintptr_t)&ret0 },
+  { "AAsset_read", (uintptr_t)&ret0 },
+  { "AAsset_seek", (uintptr_t)&ret0 },
 
   // Not sure how important this is. Used in some init_array.
   { "pthread_key_create", (uintptr_t)&ret0 },
@@ -950,7 +943,7 @@ DynLibFunction dynlib_functions[] = {
   { "pthread_cond_destroy", (uintptr_t)&pthread_cond_destroy_fake },
   { "pthread_cond_init", (uintptr_t)&pthread_cond_init_fake },
   { "pthread_cond_signal", (uintptr_t)&pthread_cond_signal_fake },
-  { "pthread_cond_timeout_np", (uintptr_t)&pthread_cond_timeout_np_fake },
+  { "pthread_cond_timedwait", (uintptr_t)&pthread_cond_timedwait_fake },
   { "pthread_cond_wait", (uintptr_t)&pthread_cond_wait_fake },
 
   { "pthread_create", (uintptr_t)&pthread_create_fake },
@@ -975,82 +968,29 @@ DynLibFunction dynlib_functions[] = {
   // { "sem_getvalue", (uintptr_t)&sem_getvalue },
   { "sem_init", (uintptr_t)&sem_init_fake },
   { "sem_post", (uintptr_t)&sem_post_fake },
-  // { "sem_trywait", (uintptr_t)&sem_trywait },
+  { "sem_trywait", (uintptr_t)&sem_trywait_fake },
   { "sem_wait", (uintptr_t)&sem_wait_fake },
-
-  { "_Jv_RegisterClasses", (uintptr_t)0 },
-  { "_ITM_deregisterTMCloneTable", (uintptr_t)0 },
-  { "_ITM_registerTMCloneTable", (uintptr_t)0 },
-
-  { "__deregister_frame_info", (uintptr_t)0 },
-  { "__register_frame_info", (uintptr_t)0 },
 
   { "GetRockstarID", (uintptr_t)&GetRockstarID },
 
-  { "__aeabi_atexit", (uintptr_t)&__aeabi_atexit },
-
   { "__android_log_print", (uintptr_t)__android_log_print },
 
-  { "__assert2", (uintptr_t)&__assert2 },
   { "__errno", (uintptr_t)&__errno },
-  // { "__isfinitef", (uintptr_t)&__isfinitef },
 
   { "__stack_chk_fail", (uintptr_t)&__stack_chk_fail },
   // freezes with real __stack_chk_guard
   { "__stack_chk_guard", (uintptr_t)&__stack_chk_guard_fake },
 
-  { "__aeabi_dcmplt", (uintptr_t)&__aeabi_dcmplt },
-  { "__aeabi_dmul", (uintptr_t)&__aeabi_dmul },
-  { "__aeabi_dsub", (uintptr_t)&__aeabi_dsub },
-  { "__aeabi_idiv", (uintptr_t)&__aeabi_idiv },
-  { "__aeabi_idivmod", (uintptr_t)&__aeabi_idivmod },
-  { "__aeabi_l2d", (uintptr_t)&__aeabi_l2d },
-  { "__aeabi_l2f", (uintptr_t)&__aeabi_l2f },
-  { "__aeabi_ldivmod", (uintptr_t)&__aeabi_ldivmod },
-  { "__aeabi_ui2d", (uintptr_t)&__aeabi_ui2d },
-  { "__aeabi_uidiv", (uintptr_t)&__aeabi_uidiv },
-  { "__aeabi_uidivmod", (uintptr_t)&__aeabi_uidivmod },
-  { "__aeabi_ul2d", (uintptr_t)&__aeabi_ul2d },
-  { "__aeabi_ul2f", (uintptr_t)&__aeabi_ul2f },
-  { "__aeabi_uldivmod", (uintptr_t)&__aeabi_uldivmod },
-  { "__aeabi_d2f", (uintptr_t)&__aeabi_d2f },
-  { "__aeabi_d2uiz", (uintptr_t)&__aeabi_d2uiz },
-  { "__aeabi_dadd", (uintptr_t)&__aeabi_dadd },
-  { "__aeabi_dcmpeq", (uintptr_t)&__aeabi_dcmpeq },
-  { "__aeabi_dcmpgt", (uintptr_t)&__aeabi_dcmpgt },
-  { "__aeabi_ddiv", (uintptr_t)&__aeabi_ddiv },
-  { "__aeabi_f2d", (uintptr_t)&__aeabi_f2d },
-  { "__aeabi_fcmpeq", (uintptr_t)&__aeabi_fcmpeq },
-  { "__aeabi_fcmpgt", (uintptr_t)&__aeabi_fcmpgt },
-  { "__aeabi_fcmpun", (uintptr_t)&__aeabi_fcmpun },
-
-  { "_Unwind_Complete", (uintptr_t)&_Unwind_Complete },
-  { "_Unwind_DeleteException", (uintptr_t)&_Unwind_DeleteException },
-  { "_Unwind_GetDataRelBase", (uintptr_t)&_Unwind_GetDataRelBase },
-  { "_Unwind_GetLanguageSpecificData", (uintptr_t)&_Unwind_GetLanguageSpecificData },
-  { "_Unwind_GetRegionStart", (uintptr_t)&_Unwind_GetRegionStart },
-  { "_Unwind_GetTextRelBase", (uintptr_t)&_Unwind_GetTextRelBase },
-  { "_Unwind_RaiseException", (uintptr_t)&_Unwind_RaiseException },
-  { "_Unwind_Resume", (uintptr_t)&_Unwind_Resume },
-  { "_Unwind_Resume_or_Rethrow", (uintptr_t)&_Unwind_Resume_or_Rethrow },
-  { "_Unwind_VRS_Get", (uintptr_t)&_Unwind_VRS_Get },
-  { "_Unwind_VRS_Set", (uintptr_t)&_Unwind_VRS_Set },
-
   { "_ctype_", (uintptr_t)&__ctype_ },
 
    // TODO: use math neon?
-  { "asin", (uintptr_t)&asin },
   { "acos", (uintptr_t)&acos },
-  { "atan", (uintptr_t)&atan },
   { "acosf", (uintptr_t)&acosf },
   { "asinf", (uintptr_t)&asinf },
-  { "atan2", (uintptr_t)&atan2 },
   { "atan2f", (uintptr_t)&atan2f },
   { "atanf", (uintptr_t)&atanf },
-  { "ceilf", (uintptr_t)&ceilf },
   { "cos", (uintptr_t)&cos },
   { "cosf", (uintptr_t)&cosf },
-  { "cosh", (uintptr_t)&cosh },
   { "exp", (uintptr_t)&exp },
   { "floor", (uintptr_t)&floor },
   { "floorf", (uintptr_t)&floorf },
@@ -1058,22 +998,22 @@ DynLibFunction dynlib_functions[] = {
   { "fmodf", (uintptr_t)&fmodf },
   { "log", (uintptr_t)&log },
   { "log10f", (uintptr_t)&log10f },
-  { "log10", (uintptr_t)&log10 },
-  { "modff", (uintptr_t)&modff },
   { "pow", (uintptr_t)&pow },
   { "powf", (uintptr_t)&powf },
   { "sin", (uintptr_t)&sin },
   { "sinf", (uintptr_t)&sinf },
-  { "sinh", (uintptr_t)&sinh },
   { "tan", (uintptr_t)&tan },
   { "tanf", (uintptr_t)&tanf },
-  { "tanh", (uintptr_t)&tanh },
   { "sqrt", (uintptr_t)&sqrt },
-  { "modf", (uintptr_t)&modf },
+  { "sqrtf", (uintptr_t)&sqrtf },
 
   { "atoi", (uintptr_t)&atoi },
+  { "atof", (uintptr_t)&atof },
   { "isspace", (uintptr_t)&isspace },
-  { "isalnum", (uintptr_t)&isalnum },
+  { "tolower", (uintptr_t)&tolower },
+  { "towlower", (uintptr_t)&towlower },
+  { "toupper", (uintptr_t)&toupper },
+  { "towupper", (uintptr_t)&towupper },
 
   { "calloc", (uintptr_t)&calloc },
   { "free", (uintptr_t)&free },
@@ -1081,12 +1021,11 @@ DynLibFunction dynlib_functions[] = {
   { "realloc", (uintptr_t)&realloc },
 
   { "clock_gettime", (uintptr_t)&clock_gettime },
-  { "ctime", (uintptr_t)&ctime },
   { "gettimeofday", (uintptr_t)&gettimeofday },
-  { "gmtime", (uintptr_t)&gmtime },
   { "time", (uintptr_t)&time },
   { "asctime", (uintptr_t)&asctime },
   { "localtime", (uintptr_t)&localtime },
+  { "localtime_r", (uintptr_t)&localtime_r },
   { "strftime", (uintptr_t)&strftime },
 
   // { "eglGetDisplay", (uintptr_t)&eglGetDisplay },
@@ -1110,6 +1049,8 @@ DynLibFunction dynlib_functions[] = {
   { "ftell", (uintptr_t)&ftell },
   { "fwrite", (uintptr_t)&fwrite },
   { "fstat", (uintptr_t)&fstat },
+  { "ferror", (uintptr_t)&ferror },
+  { "feof", (uintptr_t)&feof },
   { "setvbuf", (uintptr_t)&setvbuf },
 
   { "getenv", (uintptr_t)&getenv },
@@ -1192,18 +1133,19 @@ DynLibFunction dynlib_functions[] = {
   { "glVertexAttribPointer", (uintptr_t)&glVertexAttribPointer },
   { "glViewport", (uintptr_t)&glViewport },
 
-  // TODO: check if they are compatible
+  // this only uses setjmp in the JPEG loader but not longjmp
+  // probably doesn't matter if they're compatible or not
   { "longjmp", (uintptr_t)&longjmp },
   { "setjmp", (uintptr_t)&setjmp },
 
   { "memcmp", (uintptr_t)&memcmp },
+  { "wmemcmp", (uintptr_t)&wmemcmp },
   { "memcpy", (uintptr_t)&memcpy_neon },
   { "memmove", (uintptr_t)&memmove },
   { "memset", (uintptr_t)&memset },
   { "memchr", (uintptr_t)&memchr },
 
   { "printf", (uintptr_t)&debugPrintf },
-  { "puts", (uintptr_t)&puts },
 
   { "bsearch", (uintptr_t)&bsearch },
   { "qsort", (uintptr_t)&qsort },
@@ -1213,9 +1155,6 @@ DynLibFunction dynlib_functions[] = {
 
   // { "scmainUpdate", (uintptr_t)&scmainUpdate },
   // { "slCreateEngine", (uintptr_t)&slCreateEngine },
-
-  { "lrand48", (uintptr_t)&lrand48 },
-  { "srand48", (uintptr_t)&srand48 },
 
   { "snprintf", (uintptr_t)&snprintf },
   { "sprintf", (uintptr_t)&sprintf },
@@ -1241,6 +1180,7 @@ DynLibFunction dynlib_functions[] = {
   { "strcmp", (uintptr_t)&strcmp },
   { "strcoll", (uintptr_t)&strcoll },
   { "strcpy", (uintptr_t)&strcpy },
+  { "stpcpy", (uintptr_t)&stpcpy },
   { "strerror", (uintptr_t)&strerror },
   { "strlen", (uintptr_t)&strlen },
   { "strncasecmp", (uintptr_t)&strncasecmp },
@@ -1254,13 +1194,28 @@ DynLibFunction dynlib_functions[] = {
   { "strtok", (uintptr_t)&strtok },
   { "strtol", (uintptr_t)&strtol },
   { "strtoul", (uintptr_t)&strtoul },
+  { "strtof", (uintptr_t)&strtof },
   { "strxfrm", (uintptr_t)&strxfrm },
+
+  { "srand", (uintptr_t)&srand },
+  { "rand", (uintptr_t)&rand },
 
   // { "syscall", (uintptr_t)&syscall },
   // { "sysconf", (uintptr_t)&sysconf },
 
   { "nanosleep", (uintptr_t)&nanosleep },
   { "usleep", (uintptr_t)&usleep },
+
+  { "wctob", (uintptr_t)&wctob },
+  { "wctype", (uintptr_t)&wctype },
+  { "wcsxfrm", (uintptr_t)&wcsxfrm },
+  { "iswctype", (uintptr_t)&iswctype },
+  { "wcscoll", (uintptr_t)&wcscoll },
+  { "wcsftime", (uintptr_t)&wcsftime },
+  { "mbrtowc", (uintptr_t)&mbrtowc },
+  { "wcrtomb", (uintptr_t)&wcrtomb },
+  { "wcslen", (uintptr_t)&wcslen },
+  { "btowc", (uintptr_t)&btowc },
 };
 
 #define ALIGN_MEM(x, align) (((x) + ((align) - 1)) & ~((align) - 1))
@@ -1399,9 +1354,15 @@ int main() {
     }
   }
 
+  for (int k = 0; k < sizeof(dynlib_functions) / sizeof(*dynlib_functions); ++k)
+    if (!dynlib_functions[k].patched)
+      printf("unneeded import: %s\n", dynlib_functions[k].symbol);
+
   openal_patch();
   opengl_patch();
   functions_patch();
+
+  stderr_fake = stderr;
 
   kuKernelFlushCaches(text_base, text_size);
 
@@ -1422,11 +1383,6 @@ int main() {
 
   strcpy((char *)find_addr_by_symbol("StorageRootBuffer"), DATA_PATH);
   *(uint8_t *)find_addr_by_symbol("IsAndroidPaused") = 0;
-  *(uint32_t *)find_addr_by_symbol("cIsAndroidPaused") = 0;
-  *(uint8_t *)find_addr_by_symbol("IsInitGraphics") = 1;
-  *(uint32_t *)find_addr_by_symbol("androidScreenWidth") = 960;
-  *(uint32_t *)find_addr_by_symbol("androidScreenHeight") = 544;
-  joystickValues = (float *)find_addr_by_symbol("joystickValues");
 
   uint32_t (* initGraphics)(void) = (void *)find_addr_by_symbol("_Z12initGraphicsv");
   initGraphics();
