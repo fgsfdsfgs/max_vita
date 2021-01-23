@@ -1354,7 +1354,7 @@ int main() {
         switch (ELF32_R_TYPE(rels[j].r_info)) {
           case R_ARM_ABS32:
           {
-            *ptr = (uintptr_t)text_base + sym->st_value;
+            *ptr += (uintptr_t)text_base + sym->st_value;
             break;
           }
 
