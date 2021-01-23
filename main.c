@@ -1403,7 +1403,7 @@ int main() {
   opengl_patch();
   functions_patch();
 
-  kuFlushIcache(text_base, text_size);
+  kuKernelFlushCaches(text_base, text_size);
 
   for (int i = 0; i < elf_hdr->e_shnum; i++) {
     char *sh_name = shstrtab + sec_hdrs[i].sh_name;
