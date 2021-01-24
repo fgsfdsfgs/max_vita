@@ -36,7 +36,6 @@
 #include <math_neon.h>
 
 #include "elf.h"
-
 #include "config.h"
 
 int sceLibcHeapSize = 8 * 1024 * 1024;
@@ -202,10 +201,6 @@ int mkdir(const char *pathname, mode_t mode) {
   return 0;
 }
 
-char *GetRockstarID(void) {
-  return "flow";
-}
-
 int ProcessEvents(void) {
   return 0; // 1 is exit!
 }
@@ -234,11 +229,11 @@ int AND_SystemInitialize(void) {
 }
 
 int OS_ScreenGetHeight(void) {
-  return 544;
+  return SCREEN_H;
 }
 
 int OS_ScreenGetWidth(void) {
-  return 960;
+  return SCREEN_W;
 }
 
 #define APK_PATH "main.obb"
@@ -519,13 +514,6 @@ int NVEventEGLInit(void) {
   return 1; // success
 }
 
-FILE *fopen_hook(const char *filename, const char *mode) {
-  FILE *file = fopen(filename, mode);
-  // if (!file)
-  //   debugPrintf("fopen %s: %p\n", filename, file);
-  return file;
-}
-
 #define CLOCK_MONOTONIC 0
 
 // from re3-vita
@@ -773,36 +761,7 @@ char *__ctype_ = (char *)&_ctype_;
 
 // this is supposed to be an array of FILEs, which have a different size in libMaxPayne
 // instead use it to determine whether it's trying to print to stdout/stderr
-uint8_t fake_sF[0x300]; // stdout, stderr, stdin
-
-static inline FILE *get_actual_stream(uint8_t *stream) {
-  if ((uintptr_t)stream == 0x1337 || (stream >= fake_sF && stream < fake_sF + 0x300))
-    return stdout;
-  return (FILE *)stream;
-}
-
-int fprintf_hook(uint8_t *stream, const char *fmt, ...) {
-  FILE *f = get_actual_stream(stream);
-  if (!f) return -1;
-
-  va_list list;
-  va_start(list, fmt);
-  int ret = vfprintf(f, fmt, list);
-  va_end(list);
-
-  return ret;
-}
-
-int fputc_hook(int ch, uint8_t *stream) {
-  return fputc(ch, get_actual_stream(stream));
-}
-
-int fputs_hook(const char *s, uint8_t *stream) {
-  return fputs(s, get_actual_stream(stream));
-}
-
-int EnterGameFromSCFunc = 0;
-int SigningOutfromApp = 0;
+uint8_t fake_sF[3][0x100]; // stdout, stderr, stdin
 
 int __stack_chk_guard_fake = 0x42424242;
 
@@ -911,7 +870,6 @@ FILE *stderr_fake = (FILE *)0x1337;
 typedef struct {
   char *symbol;
   uintptr_t func;
-  int patched;
 } DynLibFunction;
 
 DynLibFunction dynlib_functions[] = {
@@ -969,13 +927,10 @@ DynLibFunction dynlib_functions[] = {
   { "sched_get_priority_min", (uintptr_t)&retm1 },
 
   { "sem_destroy", (uintptr_t)&sem_destroy_fake },
-  // { "sem_getvalue", (uintptr_t)&sem_getvalue },
   { "sem_init", (uintptr_t)&sem_init_fake },
   { "sem_post", (uintptr_t)&sem_post_fake },
   { "sem_trywait", (uintptr_t)&sem_trywait_fake },
   { "sem_wait", (uintptr_t)&sem_wait_fake },
-
-  { "GetRockstarID", (uintptr_t)&GetRockstarID },
 
   { "__android_log_print", (uintptr_t)__android_log_print },
 
@@ -1032,22 +987,20 @@ DynLibFunction dynlib_functions[] = {
   { "localtime_r", (uintptr_t)&localtime_r },
   { "strftime", (uintptr_t)&strftime },
 
-  // { "eglGetDisplay", (uintptr_t)&eglGetDisplay },
   { "eglGetProcAddress", (uintptr_t)&eglGetProcAddress },
-  // { "eglQueryString", (uintptr_t)&eglQueryString },
 
   { "abort", (uintptr_t)&abort },
   { "exit", (uintptr_t)&exit },
 
-  { "fopen", (uintptr_t)&fopen_hook },
+  { "fopen", (uintptr_t)&fopen },
   { "fclose", (uintptr_t)&fclose },
   { "fdopen", (uintptr_t)&fdopen },
   { "fflush", (uintptr_t)&fflush },
   { "fgetc", (uintptr_t)&fgetc },
   { "fgets", (uintptr_t)&fgets },
-  { "fputs", (uintptr_t)&fputs_hook },
-  { "fputc", (uintptr_t)&fputc_hook },
-  { "fprintf", (uintptr_t)&fprintf_hook },
+  { "fputs", (uintptr_t)&fputs },
+  { "fputc", (uintptr_t)&fputc },
+  { "fprintf", (uintptr_t)&fprintf },
   { "fread", (uintptr_t)&fread },
   { "fseek", (uintptr_t)&fseek },
   { "ftell", (uintptr_t)&ftell },
@@ -1058,7 +1011,6 @@ DynLibFunction dynlib_functions[] = {
   { "setvbuf", (uintptr_t)&setvbuf },
 
   { "getenv", (uintptr_t)&getenv },
-  // { "gettid", (uintptr_t)&gettid },
 
   { "glActiveTexture", (uintptr_t)&glActiveTexture },
   { "glAttachShader", (uintptr_t)&glAttachShader },
@@ -1139,7 +1091,6 @@ DynLibFunction dynlib_functions[] = {
 
   // this only uses setjmp in the JPEG loader but not longjmp
   // probably doesn't matter if they're compatible or not
-  { "longjmp", (uintptr_t)&longjmp },
   { "setjmp", (uintptr_t)&setjmp },
 
   { "memcmp", (uintptr_t)&memcmp },
@@ -1154,12 +1105,6 @@ DynLibFunction dynlib_functions[] = {
   { "bsearch", (uintptr_t)&bsearch },
   { "qsort", (uintptr_t)&qsort },
 
-  // { "raise", (uintptr_t)&raise },
-  // { "rewind", (uintptr_t)&rewind },
-
-  // { "scmainUpdate", (uintptr_t)&scmainUpdate },
-  // { "slCreateEngine", (uintptr_t)&slCreateEngine },
-
   { "snprintf", (uintptr_t)&snprintf },
   { "sprintf", (uintptr_t)&sprintf },
   { "vsnprintf", (uintptr_t)&vsnprintf },
@@ -1168,13 +1113,10 @@ DynLibFunction dynlib_functions[] = {
   { "sscanf", (uintptr_t)&sscanf },
 
   { "close", (uintptr_t)&close },
-  // { "closedir", (uintptr_t)&closedir },
   { "lseek", (uintptr_t)&lseek },
   { "mkdir", (uintptr_t)&mkdir },
   { "open", (uintptr_t)&open },
-  // { "opendir", (uintptr_t)&opendir },
   { "read", (uintptr_t)&read },
-  // { "readdir", (uintptr_t)&readdir },
   { "stat", (uintptr_t)stat },
   { "write", (uintptr_t)&write },
 
@@ -1203,9 +1145,6 @@ DynLibFunction dynlib_functions[] = {
 
   { "srand", (uintptr_t)&srand },
   { "rand", (uintptr_t)&rand },
-
-  // { "syscall", (uintptr_t)&syscall },
-  // { "sysconf", (uintptr_t)&sysconf },
 
   { "nanosleep", (uintptr_t)&nanosleep },
   { "usleep", (uintptr_t)&usleep },
@@ -1339,13 +1278,9 @@ int main() {
             for (int k = 0; k < sizeof(dynlib_functions) / sizeof(DynLibFunction); k++) {
               if (strcmp(name, dynlib_functions[k].symbol) == 0) {
                 *ptr = dynlib_functions[k].func;
-                dynlib_functions[k].patched = 1;
                 break;
               }
             }
-
-            if (*ptr == rels[j].r_offset)
-              debugPrintf("unsatisfied: %s\n", name);
 
             break;
           }
@@ -1357,10 +1292,6 @@ int main() {
       }
     }
   }
-
-  for (int k = 0; k < sizeof(dynlib_functions) / sizeof(*dynlib_functions); ++k)
-    if (!dynlib_functions[k].patched)
-      printf("unneeded import: %s\n", dynlib_functions[k].symbol);
 
   openal_patch();
   opengl_patch();
