@@ -695,6 +695,7 @@ void functions_patch() {
 
   // used to check some flags
   hook_thumb(find_addr_by_symbol("_Z20OS_ServiceAppCommandPKcS0_"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z23OS_ServiceAppCommandIntPKci"), (uintptr_t)ret0);
 
   hook_thumb(find_addr_by_symbol("_Z15OS_ThreadLaunchPFjPvES_jPKci16OSThreadPriority"), (uintptr_t)OS_ThreadLaunch);
 
@@ -890,6 +891,15 @@ void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, G
 void glGetProgramInfoLogHook(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
   glGetProgramInfoLog(program, maxLength, length, infoLog);
   debugPrintf("program info log:\n%s\n", infoLog);
+}
+
+void glViewportHook(GLint x, GLint y, GLsizei w, GLsizei h) {
+  // HACK: the game really wants to force 16:9, so it centers a 960x540 viewport
+  if (w == 960 && h == 540) {
+    h = 544;
+    y = 0;
+  }
+  glViewport(x, y, w, h);
 }
 
 FILE *stderr_fake = (FILE *)0x1337;
@@ -1121,7 +1131,7 @@ DynLibFunction dynlib_functions[] = {
   { "glUseProgram", (uintptr_t)&glUseProgram },
   { "glVertexAttrib4fv", (uintptr_t)&glVertexAttrib4fv },
   { "glVertexAttribPointer", (uintptr_t)&glVertexAttribPointer },
-  { "glViewport", (uintptr_t)&glViewport },
+  { "glViewport", (uintptr_t)&glViewportHook },
 
   // this only uses setjmp in the JPEG loader but not longjmp
   // probably doesn't matter if they're compatible or not
@@ -1370,6 +1380,9 @@ int main() {
   }
 
   sceKernelFreeMemBlock(so_blockid);
+
+  // won't save without it
+  mkdir(DATA_PATH "/savegames", 0777);
 
   strcpy((char *)find_addr_by_symbol("StorageRootBuffer"), DATA_PATH);
   *(uint8_t *)find_addr_by_symbol("IsAndroidPaused") = 0;
