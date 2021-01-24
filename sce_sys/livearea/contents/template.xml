@@ -2,10 +2,18 @@
 
 <livearea style="psmobile" format-ver="01.00" content-rev="1">
 	<livearea-background>
-		<image>bg.png</image>
+		<image>bg0.png</image>
 	</livearea-background>
-	
+	 
 	<gate>
-		<startup-image>startup.png</startup-image>
+		<startup-image>default_gate.png</startup-image>
 	</gate>
+		
+	<!--<frame id="frame4">
+		<liveitem>
+			<text align="left" text-align="left" word-wrap="off" ellipsis="on">
+				<str size="18" color="#000000" shadow="on">v1.00</str>
+			</text>
+		</liveitem>
+	</frame>-->
 </livearea>
