@@ -6,7 +6,11 @@ This is probably not entirely stable yet, so expect issues.
 ### How to install
 
 Before installing the game, you should do the following on your Vita:
-1. [Install kubridge](https://github.com/TheOfficialFloW/kubridge/releases/) the same way you would install any other .skprx plugin.
+1. [Install kubridge](https://github.com/TheOfficialFloW/kubridge/releases/) same way you install other `.skprx` plugins: download `kubridge.suprx`, copy it to `ux0:/tai/` and add these lines to your `ux0:/tai/config.txt`:
+```
+*KERNEL
+ux0:tai/kubridge.skprx
+```
 2. (optional) [Install fdfix](https://github.com/TheOfficialFloW/FdFix) if you don't want your game to crash on suspend.
 2. [Install PIB/Piglet and the runtime shader compiler](https://github.com/SonicMastr/PIB-Configuration-Tool).
 3. Reboot.
