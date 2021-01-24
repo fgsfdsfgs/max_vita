@@ -626,10 +626,12 @@ int WarGamepad_GetGamepadButtons(int padnum) {
     mask |= 0x10;
   if (pad.buttons & SCE_CTRL_SELECT)
     mask |= 0x20;
+/*
   if (pad.buttons & SCE_CTRL_L1)
     mask |= 0x40;
   if (pad.buttons & SCE_CTRL_R1)
     mask |= 0x80;
+*/
   if (pad.buttons & SCE_CTRL_UP)
     mask |= 0x100;
   if (pad.buttons & SCE_CTRL_DOWN)
@@ -655,9 +657,6 @@ float WarGamepad_GetGamepadAxis(int padnum, int axis) {
   SceCtrlData pad;
   sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
 
-  SceTouchData touch;
-  sceTouchPeek(0, &touch, 1);
-
   float val = 0.0f;
 
   switch (axis) {
@@ -674,20 +673,11 @@ float WarGamepad_GetGamepadAxis(int padnum, int axis) {
       val = ((float)pad.ry - 128.0f) / 128.0f;
       break;
     case 4: // L2
+      val = (pad.buttons & SCE_CTRL_L1) ? 1.0f : 0.0f;
+      break;
     case 5: // R2
-    {
-      for (int i = 0; i < touch.reportNum; i++) {
-        if (touch.report[i].y < 1088/2) {
-          if (touch.report[i].x < 1920/2) {
-            if (axis == 4)
-              val = 1.0f;
-          } else {
-            if (axis == 5)
-              val = 1.0f;
-          }
-        }
-      }
-    }
+      val = (pad.buttons & SCE_CTRL_R1) ? 1.0f : 0.0f;
+      break;
   }
 
   if (fabsf(val) > 0.2f)
