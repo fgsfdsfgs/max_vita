@@ -40,7 +40,7 @@ int main(void) {
 
   so_flush_caches();
 
-  so_excute_init();
+  so_excute_init_array();
 
   so_free_temp();
 

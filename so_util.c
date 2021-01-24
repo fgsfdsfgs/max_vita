@@ -234,7 +234,7 @@ int so_resolve(DynLibFunction *functions, int num_functions) {
   return 0;
 }
 
-void so_excute_init(void) {
+void so_excute_init_array(void) {
   for (int i = 0; i < elf_hdr->e_shnum; i++) {
     char *sh_name = shstrtab + sec_hdr[i].sh_name;
     if (strcmp(sh_name, ".init_array") == 0) {
