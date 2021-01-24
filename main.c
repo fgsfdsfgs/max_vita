@@ -210,10 +210,6 @@ int ProcessEvents(void) {
   return 0; // 1 is exit!
 }
 
-int OS_SystemChip(void) {
-  return 0;
-}
-
 int AND_DeviceType(void) {
   // 0x1: phone
   // 0x2: tegra
@@ -223,6 +219,18 @@ int AND_DeviceType(void) {
 
 int AND_DeviceLocale(void) {
   return 0; // english
+}
+
+int *deviceChip;
+int *deviceForm;
+int *definedDevice;
+
+int AND_SystemInitialize(void) {
+  // set device information in such a way that bloom isn't enabled
+  *deviceForm = 1; // phone
+  *deviceChip = 19; // not a tegra? tegras are 12, 13, 14
+  *definedDevice = 27; // not a tegra?
+  return 0;
 }
 
 int OS_ScreenGetHeight(void) {
@@ -729,20 +737,16 @@ void functions_patch() {
 
   hook_thumb(find_addr_by_symbol("_Z25GetAndroidCurrentLanguagev"), (uintptr_t)ret0);
   hook_thumb(find_addr_by_symbol("_Z9NvAPKOpenPKc"), (uintptr_t)ret0);
-  hook_thumb(find_addr_by_symbol("_Z22AND_FileGetArchiveName13OSFileArchive"), (uintptr_t)OS_FileGetArchiveName);
 
   hook_thumb(find_addr_by_symbol("_Z17OS_ScreenGetWidthv"), (uintptr_t)OS_ScreenGetWidth);
   hook_thumb(find_addr_by_symbol("_Z18OS_ScreenGetHeightv"), (uintptr_t)OS_ScreenGetHeight);
 
-  hook_thumb(find_addr_by_symbol("_Z13OS_SystemChipv"), (uintptr_t)OS_SystemChip);
-
   hook_thumb(find_addr_by_symbol("_Z14AND_DeviceTypev"), (uintptr_t)AND_DeviceType);
   hook_thumb(find_addr_by_symbol("_Z16AND_DeviceLocalev"), (uintptr_t)AND_DeviceLocale);
-
-  // TODO: set deviceChip, definedDevice
-  hook_thumb(find_addr_by_symbol("_Z20AND_SystemInitializev"), (uintptr_t)ret0);
-
+  hook_thumb(find_addr_by_symbol("_Z20AND_SystemInitializev"), (uintptr_t)AND_SystemInitialize);
   hook_thumb(find_addr_by_symbol("_Z21AND_ScreenSetWakeLockb"), (uintptr_t)ret0);
+  hook_thumb(find_addr_by_symbol("_Z22AND_FileGetArchiveName13OSFileArchive"), (uintptr_t)OS_FileGetArchiveName);
+
 
   hook_thumb(find_addr_by_symbol("_Z26ReadDataFromPrivateStoragePKcRPcRi"), (uintptr_t)ReadDataFromPrivateStorage);
   hook_thumb(find_addr_by_symbol("_Z25WriteDataToPrivateStoragePKcS0_i"), (uintptr_t)WriteDataToPrivateStorage);
@@ -1383,6 +1387,10 @@ int main() {
 
   // won't save without it
   mkdir(DATA_PATH "/savegames", 0777);
+
+  deviceChip = (int *)find_addr_by_symbol("deviceChip");
+  deviceForm = (int *)find_addr_by_symbol("deviceForm");
+  definedDevice = (int *)find_addr_by_symbol("definedDevice");
 
   strcpy((char *)find_addr_by_symbol("StorageRootBuffer"), DATA_PATH);
   *(uint8_t *)find_addr_by_symbol("IsAndroidPaused") = 0;
