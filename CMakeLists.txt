@@ -32,7 +32,6 @@ target_link_libraries(max.elf
   -Wl,--whole-archive pthread -Wl,--no-whole-archive
   stdc++
   m
-  mathneon
   openal
   SDL2
   pib
