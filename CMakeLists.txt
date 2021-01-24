@@ -19,8 +19,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++11")
 
 add_executable(max.elf
   main.c
-  openal_patch.c
-  opengl_patch.c
+  util.c
+  so_util.c
+  imports.c
+  hooks/opengl.c
+  hooks/openal.c
+  hooks/game.c
   memcpy_neon.S
 )
 
