@@ -312,6 +312,9 @@ void patch_game(void) {
 
   hook_thumb(so_find_addr("_Z15ExitAndroidGamev"), (uintptr_t)ExitAndroidGame);
 
+  // enable shadows
+  hook_thumb(so_find_addr("_ZN13X_DetailLevel19getCharacterShadowsEv"), (uintptr_t)ret1);
+
   // vars used in AND_SystemInitialize
   deviceChip = (int *)so_find_addr("deviceChip");
   deviceForm = (int *)so_find_addr("deviceForm");
