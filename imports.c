@@ -27,6 +27,8 @@
 #include "so_util.h"
 #include "util.h"
 
+#define GL_MAX_VERTEX_UNIFORM_VECTORS 0x8DFB
+#define GL_DEPTH_WRITEMASK 0x0B72
 #define CLOCK_MONOTONIC 0
 
 extern int __aeabi_memclr;
@@ -55,6 +57,8 @@ static char *__ctype_ = (char *)&_ctype_;
 static uint8_t fake_sF[3][0x100]; // stdout, stderr, stdin
 
 static int __stack_chk_guard_fake = 0x42424242;
+
+static GLuint cur_depthmask = GL_TRUE;
 
 FILE *stderr_fake = (FILE *)0x1337;
 
@@ -332,7 +336,6 @@ void glFramebufferTexture2DHook(GLenum target, GLenum att, GLenum textarget, GLu
   // no
 }
 
-#define GL_MAX_VERTEX_UNIFORM_VECTORS 0x8DFB
 void glGetIntegervHook(GLenum pname, GLint *data) {
   //debugPrintf("glGetIntegerv pname: 0x%X\n", pname);
   glGetIntegerv(pname, data);
@@ -342,6 +345,13 @@ void glGetIntegervHook(GLenum pname, GLint *data) {
     *data = GL_TRUE;
   else if (pname == GL_DRAW_FRAMEBUFFER_BINDING)
     *data = 0;
+}
+
+void glGetBooleanvHook(GLenum pname, GLboolean *data) {
+  if (pname == GL_DEPTH_WRITEMASK)
+    *data = cur_depthmask;
+  else
+    glGetBooleanv(pname, data);
 }
 
 // Fails for:
@@ -364,6 +374,11 @@ void glViewportHook(GLint x, GLint y, GLsizei w, GLsizei h) {
     y = 0;
   }
   glViewport(x, y, w, h);
+}
+
+void glDepthMaskHook(GLuint mask) {
+  cur_depthmask = mask;
+  glDepthMask(mask);
 }
 
 // import table
@@ -553,8 +568,8 @@ DynLibFunction dynlib_functions[] = {
   { "glGenTextures", (uintptr_t)&glGenTextures },
   { "glGetAttribLocation", (uintptr_t)&glGetAttribLocation },
   { "glGetError", (uintptr_t)&glGetError },
-  { "glGetBooleanv", (uintptr_t)&glGetBooleanv },
-  { "glGetIntegerv", (uintptr_t)&glGetIntegerv },
+  { "glGetBooleanv", (uintptr_t)&glGetBooleanvHook },
+  { "glGetIntegerv", (uintptr_t)&glGetIntegervHook },
   { "glGetProgramInfoLog", (uintptr_t)&glGetProgramInfoLog },
   { "glGetProgramiv", (uintptr_t)&glGetProgramiv },
   { "glGetShaderInfoLog", (uintptr_t)&glGetShaderInfoLogHook },
