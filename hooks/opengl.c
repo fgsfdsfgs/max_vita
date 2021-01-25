@@ -1,20 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <EGL/egl.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <vitaGL.h>
 
 #include "../config.h"
 #include "../util.h"
 #include "../so_util.h"
 
-static EGLDisplay display = NULL;
-static EGLSurface surface = NULL;
-static EGLContext context = NULL;
-
 void NVEventEGLSwapBuffers(void) {
-  eglSwapBuffers(display, surface);
+  vglSwapBuffers();
 }
 
 void NVEventEGLMakeCurrent(void) {
@@ -24,42 +18,7 @@ void NVEventEGLUnmakeCurrent(void) {
 }
 
 int NVEventEGLInit(void) {
-  EGLint majorVersion;
-  EGLint minorVersion;
-  EGLint numConfigs = 0;
-  EGLConfig config;
-
-  EGLint configAttribs[] = {
-    EGL_CONFIG_ID, 2,
-    EGL_RED_SIZE, 8,
-    EGL_GREEN_SIZE, 8,
-    EGL_BLUE_SIZE, 8,
-    EGL_ALPHA_SIZE, 8,
-    EGL_DEPTH_SIZE, 32,
-    EGL_STENCIL_SIZE, 8,
-    EGL_SURFACE_TYPE, 5,
-    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-    EGL_NONE
-  };
-
-  const EGLint contextAttribs[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 2,
-    EGL_NONE
-  };
-
-  display = eglGetDisplay(0);
-
-  eglInitialize(display, &majorVersion, &minorVersion);
-  eglBindAPI(EGL_OPENGL_ES_API);
-  eglChooseConfig(display, configAttribs, &config, 1, &numConfigs);
-
-  surface = eglCreateWindowSurface(display, config, VITA_WINDOW_960X544, NULL);
-  context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
-
-  eglMakeCurrent(display, surface, surface, context);
-
-  debugPrintf("GL_EXTENSIONS: %s\n", glGetString(GL_EXTENSIONS));
-
+  vglWaitVblankStart(GL_TRUE);
   return 1; // success
 }
 

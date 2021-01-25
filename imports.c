@@ -17,9 +17,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/reent.h>
-#include <EGL/egl.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <vitaGL.h>
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/kernel/threadmgr.h>
@@ -281,68 +279,69 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
 
 // GL stuff
 
+void glGetProgramiv(GLuint program, GLenum pname, GLint *params) {
+  //debugPrintf("glGetProgramiv pname: 0x%X\n", pname);
+  if (pname == GL_INFO_LOG_LENGTH)
+    *params = 0;
+  else
+    *params = GL_TRUE;
+}
+
+void glGetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
+  if (length) *length = 0;
+}
+
+void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
+  glGetShaderInfoLog(shader, maxLength, length, infoLog);
+  debugPrintf("shader info log:\n%s\n", infoLog);
+}
+
+void glGenRenderbuffers(GLsizei num, GLuint *v) {
+  memset(v, 0, sizeof(GLuint) * num);
+}
+
+void glGenFramebuffersHook(GLsizei num, GLuint *v) {
+  memset(v, 0, sizeof(GLuint) * num);
+}
+
+void glDeleteRenderbuffers(GLsizei num, GLuint *v) {
+  // no
+}
+
+void glDeleteFramebuffersHook(GLsizei num, GLuint *v) {
+  // no
+}
+
+void glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) {
+  // no
+}
+
+void glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, GLsizei height) {
+  // no
+}
+
+void glBindRenderbuffer(GLenum target, GLuint rb) {
+  // no
+}
+
+void glBindFramebufferHook(GLenum target, GLuint fb) {
+  // no
+}
+
+void glFramebufferTexture2DHook(GLenum target, GLenum att, GLenum textarget, GLuint tex, GLint level) {
+  // no
+}
+
+#define GL_MAX_VERTEX_UNIFORM_VECTORS 0x8DFB
 void glGetIntegervHook(GLenum pname, GLint *data) {
+  //debugPrintf("glGetIntegerv pname: 0x%X\n", pname);
   glGetIntegerv(pname, data);
   if (pname == GL_MAX_VERTEX_UNIFORM_VECTORS)
-    *data = (63 * 3) + 32; // piglet hardcodes 128! need this for the bones
-}
-
-// Piglet does not use softfp, so we need to write some wrappers
-
-__attribute__((naked)) void glClearColorWrapper(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "vmov s1, r1\n"
-    "vmov s2, r2\n"
-    "vmov s3, r3\n"
-    "b glClearColor\n"
-  );
-}
-
-__attribute__((naked)) void glClearDepthfWrapper(GLfloat d) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "b glClearDepthf\n"
-  );
-}
-
-__attribute__((naked)) void glDepthRangefWrapper(GLfloat near, GLfloat far) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "vmov s1, r1\n"
-    "b glDepthRangef\n"
-  );
-}
-
-__attribute__((naked)) void glUniform1fWrapper(GLint location, GLfloat v) {
-  asm volatile (
-    "vmov s0, r1\n"
-    "b glUniform1f\n"
-  );
-}
-
-__attribute__((naked)) void glUniform3fWrapper(GLint location, GLfloat v0, GLfloat v1, GLfloat v2) {
-  asm volatile (
-    "vmov s0, r1\n"
-    "vmov s1, r2\n"
-    "vmov s2, r3\n"
-    "b glUniform3f\n"
-  );
-}
-
-__attribute__((naked)) void glPolygonOffsetWrapper(GLfloat factor, GLfloat units) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "vmov s1, r1\n"
-    "b glPolygonOffset\n"
-  );
-}
-
-__attribute__((naked)) void glTexParameterfWrapper(GLenum target, GLenum pname, GLfloat param) {
-  asm volatile (
-    "vmov s0, r2\n"
-    "b glTexParameterf\n"
-  );
+    *data = 181 + 32; // maximum bones
+  else if (pname == 0x8B82)
+    *data = GL_TRUE;
+  else if (pname == GL_DRAW_FRAMEBUFFER_BINDING)
+    *data = 0;
 }
 
 // Fails for:
@@ -356,20 +355,6 @@ void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum internalforma
 void glTexImage2DHook(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data) {
   if (!level)
     glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
-}
-
-void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
-  static char srcbuf[0x2000];
-  GLsizei len = 0;
-  glGetShaderSource(shader, sizeof(srcbuf), &len, srcbuf);
-  if (len > 0) debugPrintf("\nshader source:\n%s\n", srcbuf);
-  glGetShaderInfoLog(shader, maxLength, length, infoLog);
-  debugPrintf("shader info log:\n%s\n", infoLog);
-}
-
-void glGetProgramInfoLogHook(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
-  glGetProgramInfoLog(program, maxLength, length, infoLog);
-  debugPrintf("program info log:\n%s\n", infoLog);
 }
 
 void glViewportHook(GLint x, GLint y, GLsizei w, GLsizei h) {
@@ -498,7 +483,7 @@ DynLibFunction dynlib_functions[] = {
   { "localtime_r", (uintptr_t)&localtime_r },
   { "strftime", (uintptr_t)&strftime },
 
-  { "eglGetProcAddress", (uintptr_t)&eglGetProcAddress },
+  { "eglGetProcAddress", (uintptr_t)&vglGetProcAddress },
 
   { "abort", (uintptr_t)&abort },
   { "exit", (uintptr_t)&exit },
@@ -527,7 +512,7 @@ DynLibFunction dynlib_functions[] = {
   { "glAttachShader", (uintptr_t)&glAttachShader },
   { "glBindAttribLocation", (uintptr_t)&glBindAttribLocation },
   { "glBindBuffer", (uintptr_t)&glBindBuffer },
-  { "glBindFramebuffer", (uintptr_t)&glBindFramebuffer },
+  { "glBindFramebuffer", (uintptr_t)&glBindFramebufferHook },
   { "glBindRenderbuffer", (uintptr_t)&glBindRenderbuffer },
   { "glBindTexture", (uintptr_t)&glBindTexture },
   { "glBlendFunc", (uintptr_t)&glBlendFunc },
@@ -535,8 +520,8 @@ DynLibFunction dynlib_functions[] = {
   { "glBufferData", (uintptr_t)&glBufferData },
   { "glCheckFramebufferStatus", (uintptr_t)&glCheckFramebufferStatus },
   { "glClear", (uintptr_t)&glClear },
-  { "glClearColor", (uintptr_t)&glClearColorWrapper },
-  { "glClearDepthf", (uintptr_t)&glClearDepthfWrapper },
+  { "glClearColor", (uintptr_t)&glClearColor },
+  { "glClearDepthf", (uintptr_t)&glClearDepthf },
   { "glClearStencil", (uintptr_t)&glClearStencil },
   { "glCompileShader", (uintptr_t)&glCompileShader },
   { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2DHook },
@@ -544,14 +529,14 @@ DynLibFunction dynlib_functions[] = {
   { "glCreateShader", (uintptr_t)&glCreateShader },
   { "glCullFace", (uintptr_t)&glCullFace },
   { "glDeleteBuffers", (uintptr_t)&glDeleteBuffers },
-  { "glDeleteFramebuffers", (uintptr_t)&glDeleteFramebuffers },
+  { "glDeleteFramebuffers", (uintptr_t)&glDeleteFramebuffersHook },
   { "glDeleteProgram", (uintptr_t)&glDeleteProgram },
   { "glDeleteRenderbuffers", (uintptr_t)&glDeleteRenderbuffers },
   { "glDeleteShader", (uintptr_t)&glDeleteShader },
   { "glDeleteTextures", (uintptr_t)&glDeleteTextures },
   { "glDepthFunc", (uintptr_t)&glDepthFunc },
   { "glDepthMask", (uintptr_t)&glDepthMask },
-  { "glDepthRangef", (uintptr_t)&glDepthRangefWrapper },
+  { "glDepthRangef", (uintptr_t)&glDepthRangef },
   { "glDisable", (uintptr_t)&glDisable },
   { "glDisableVertexAttribArray", (uintptr_t)&glDisableVertexAttribArray },
   { "glDrawArrays", (uintptr_t)&glDrawArrays },
@@ -560,10 +545,10 @@ DynLibFunction dynlib_functions[] = {
   { "glEnableVertexAttribArray", (uintptr_t)&glEnableVertexAttribArray },
   { "glFinish", (uintptr_t)&glFinish },
   { "glFramebufferRenderbuffer", (uintptr_t)&glFramebufferRenderbuffer },
-  { "glFramebufferTexture2D", (uintptr_t)&glFramebufferTexture2D },
+  { "glFramebufferTexture2D", (uintptr_t)&glFramebufferTexture2DHook },
   { "glFrontFace", (uintptr_t)&glFrontFace },
   { "glGenBuffers", (uintptr_t)&glGenBuffers },
-  { "glGenFramebuffers", (uintptr_t)&glGenFramebuffers },
+  { "glGenFramebuffers", (uintptr_t)&glGenFramebuffersHook },
   { "glGenRenderbuffers", (uintptr_t)&glGenRenderbuffers },
   { "glGenTextures", (uintptr_t)&glGenTextures },
   { "glGetAttribLocation", (uintptr_t)&glGetAttribLocation },
@@ -578,19 +563,19 @@ DynLibFunction dynlib_functions[] = {
   { "glGetUniformLocation", (uintptr_t)&glGetUniformLocation },
   { "glHint", (uintptr_t)&glHint },
   { "glLinkProgram", (uintptr_t)&glLinkProgram },
-  { "glPolygonOffset", (uintptr_t)&glPolygonOffsetWrapper },
+  { "glPolygonOffset", (uintptr_t)&glPolygonOffset },
   { "glReadPixels", (uintptr_t)&glReadPixels },
   { "glRenderbufferStorage", (uintptr_t)&glRenderbufferStorage },
   { "glScissor", (uintptr_t)&glScissor },
   { "glShaderSource", (uintptr_t)&glShaderSource },
   { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
-  { "glTexParameterf", (uintptr_t)&glTexParameterfWrapper },
+  { "glTexParameterf", (uintptr_t)&glTexParameterf },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
-  { "glUniform1f", (uintptr_t)&glUniform1fWrapper },
+  { "glUniform1f", (uintptr_t)&glUniform1f },
   { "glUniform1fv", (uintptr_t)&glUniform1fv },
   { "glUniform1i", (uintptr_t)&glUniform1i },
   { "glUniform2fv", (uintptr_t)&glUniform2fv },
-  { "glUniform3f", (uintptr_t)&glUniform3fWrapper },
+  { "glUniform3f", (uintptr_t)&glUniform3f },
   { "glUniform3fv", (uintptr_t)&glUniform3fv },
   { "glUniform4fv", (uintptr_t)&glUniform4fv },
   { "glUniformMatrix3fv", (uintptr_t)&glUniformMatrix3fv },
