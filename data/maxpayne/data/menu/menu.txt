@@ -1265,12 +1265,11 @@ ControlSeparatorString = GCID_SEPARATOR;
 			ID = MENUID_SLIDER_MIPMAP_BIAS;
 			Ticks =	3;
 
-			// can't use this on vita
-			// [Slider]
-			// Name = GCID_SCREENRESOLUTION;
-			// ToolTip = GCID_SCREENRESOLUTION_TIP;
-			// ID = MENUID_SLIDER_SCREENRESOLUTION;
-			// Ticks = 10;
+			[Slider]
+			Name = GCID_SCREENRESOLUTION;
+			ToolTip = GCID_SCREENRESOLUTION_TIP;
+			ID = MENUID_SLIDER_SCREENRESOLUTION;
+			Ticks = 10;
 
 			// [Slider]
 			// Name = GCID_LEVELOFDETAIL;
@@ -1278,12 +1277,11 @@ ControlSeparatorString = GCID_SEPARATOR;
 			// ID = MENUID_SLIDER_LOD_BIAS;
 			// Ticks =	25;
 
-			// can't use this on vita
-			// [Slider]
-			// Name = GCID_GAMMACONTROL;
-			// ToolTip = GCID_GAMMACONTROL_TIP;
-			// ID = MENUID_SLIDER_GAMMA;
-			// Ticks =	50;
+			[Slider]
+			Name = GCID_GAMMACONTROL;
+			ToolTip = GCID_GAMMACONTROL_TIP;
+			ID = MENUID_SLIDER_GAMMA;
+			Ticks =	50;
 
 			[Toggle]
 			name = GCID_HIGHPARTICLES;
@@ -1291,11 +1289,10 @@ ControlSeparatorString = GCID_SEPARATOR;
 			ActiveToolTip = GCID_HIGHPARTICLES_TIP;
 			ID = MENUID_TOGGLE_HIGHPARTICLES;
 
-			// can't use this on vita
-			// [Toggle]
-			// Name = GCID_ENABLEENHANCEDCONTRAST;
-			// ToolTip = GCID_ENABLEENHANCEDCONTRAST_TIP;
-			// ID = MENUID_TOGGLE_ENHANCEDCONTRAST;
+			[Toggle]
+			Name = GCID_ENABLEENHANCEDCONTRAST;
+			ToolTip = GCID_ENABLEENHANCEDCONTRAST_TIP;
+			ID = MENUID_TOGGLE_ENHANCEDCONTRAST;
 
 			[Menu]
 			{

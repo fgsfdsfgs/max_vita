@@ -310,11 +310,6 @@ void patch_game(void) {
   // no touchsense
   hook_thumb(so_find_addr("_ZN10TouchSenseC2Ev"), (uintptr_t)ret0);
 
-  // stub out framebuffer effects, they cause cardiac arrest in the renderer under certain circumstances
-  hook_thumb(so_find_addr("_Z19SafeBindFrameBufferj"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("_Z11DrawPPImageR11P_ES2Shaderjjjbjj"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("_Z10ApplyBloomv"), (uintptr_t)ret0);
-
   hook_thumb(so_find_addr("_Z15ExitAndroidGamev"), (uintptr_t)ExitAndroidGame);
 
   // vars used in AND_SystemInitialize

@@ -41,7 +41,7 @@ int main(void) {
   so_excute_init_array();
   so_free_temp();
 
-  vglSetupRuntimeShaderCompiler(SHARK_OPT_FAST, SHARK_ENABLE, SHARK_DISABLE, SHARK_ENABLE);
+  vglSetupRuntimeShaderCompiler(SHARK_OPT_UNSAFE, SHARK_ENABLE, SHARK_ENABLE, SHARK_ENABLE);
   vglInitExtended(SCREEN_W, SCREEN_H, 0x1000000, SCE_GXM_MULTISAMPLE_4X);
   vglUseVram(GL_TRUE);
 
@@ -50,6 +50,7 @@ int main(void) {
 
   strcpy((char *)so_find_addr("StorageRootBuffer"), DATA_PATH);
   *(uint8_t *)so_find_addr("IsAndroidPaused") = 0;
+  *(uint8_t *)so_find_addr("UseRGBA8") = 1; // RGB565 fbos are not supported by vgl
 
   uint32_t (* initGraphics)(void) = (void *)so_find_addr("_Z12initGraphicsv");
   initGraphics();

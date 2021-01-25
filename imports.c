@@ -304,15 +304,7 @@ void glGenRenderbuffers(GLsizei num, GLuint *v) {
   memset(v, 0, sizeof(GLuint) * num);
 }
 
-void glGenFramebuffersHook(GLsizei num, GLuint *v) {
-  memset(v, 0, sizeof(GLuint) * num);
-}
-
 void glDeleteRenderbuffers(GLsizei num, GLuint *v) {
-  // no
-}
-
-void glDeleteFramebuffersHook(GLsizei num, GLuint *v) {
   // no
 }
 
@@ -325,14 +317,6 @@ void glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, 
 }
 
 void glBindRenderbuffer(GLenum target, GLuint rb) {
-  // no
-}
-
-void glBindFramebufferHook(GLenum target, GLuint fb) {
-  // no
-}
-
-void glFramebufferTexture2DHook(GLenum target, GLenum att, GLenum textarget, GLuint tex, GLint level) {
   // no
 }
 
@@ -352,28 +336,6 @@ void glGetBooleanvHook(GLenum pname, GLboolean *data) {
     *data = cur_depthmask;
   else
     glGetBooleanv(pname, data);
-}
-
-// Fails for:
-// 35841: GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
-// 35842: GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
-void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void * data) {
-  if (!level)
-    glCompressedTexImage2D(target, level, internalformat, width, height, border, imageSize, data);
-}
-
-void glTexImage2DHook(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data) {
-  if (!level)
-    glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
-}
-
-void glViewportHook(GLint x, GLint y, GLsizei w, GLsizei h) {
-  // HACK: the game really wants to force 16:9, so it centers a 960x540 viewport
-  if (w == 960 && h == 540) {
-    h = 544;
-    y = 0;
-  }
-  glViewport(x, y, w, h);
 }
 
 void glDepthMaskHook(GLuint mask) {
@@ -527,7 +489,7 @@ DynLibFunction dynlib_functions[] = {
   { "glAttachShader", (uintptr_t)&glAttachShader },
   { "glBindAttribLocation", (uintptr_t)&glBindAttribLocation },
   { "glBindBuffer", (uintptr_t)&glBindBuffer },
-  { "glBindFramebuffer", (uintptr_t)&glBindFramebufferHook },
+  { "glBindFramebuffer", (uintptr_t)&glBindFramebuffer },
   { "glBindRenderbuffer", (uintptr_t)&glBindRenderbuffer },
   { "glBindTexture", (uintptr_t)&glBindTexture },
   { "glBlendFunc", (uintptr_t)&glBlendFunc },
@@ -539,12 +501,12 @@ DynLibFunction dynlib_functions[] = {
   { "glClearDepthf", (uintptr_t)&glClearDepthf },
   { "glClearStencil", (uintptr_t)&glClearStencil },
   { "glCompileShader", (uintptr_t)&glCompileShader },
-  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2DHook },
+  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2D },
   { "glCreateProgram", (uintptr_t)&glCreateProgram },
   { "glCreateShader", (uintptr_t)&glCreateShader },
   { "glCullFace", (uintptr_t)&glCullFace },
   { "glDeleteBuffers", (uintptr_t)&glDeleteBuffers },
-  { "glDeleteFramebuffers", (uintptr_t)&glDeleteFramebuffersHook },
+  { "glDeleteFramebuffers", (uintptr_t)&glDeleteFramebuffers },
   { "glDeleteProgram", (uintptr_t)&glDeleteProgram },
   { "glDeleteRenderbuffers", (uintptr_t)&glDeleteRenderbuffers },
   { "glDeleteShader", (uintptr_t)&glDeleteShader },
@@ -560,10 +522,10 @@ DynLibFunction dynlib_functions[] = {
   { "glEnableVertexAttribArray", (uintptr_t)&glEnableVertexAttribArray },
   { "glFinish", (uintptr_t)&glFinish },
   { "glFramebufferRenderbuffer", (uintptr_t)&glFramebufferRenderbuffer },
-  { "glFramebufferTexture2D", (uintptr_t)&glFramebufferTexture2DHook },
+  { "glFramebufferTexture2D", (uintptr_t)&glFramebufferTexture2D },
   { "glFrontFace", (uintptr_t)&glFrontFace },
   { "glGenBuffers", (uintptr_t)&glGenBuffers },
-  { "glGenFramebuffers", (uintptr_t)&glGenFramebuffersHook },
+  { "glGenFramebuffers", (uintptr_t)&glGenFramebuffers },
   { "glGenRenderbuffers", (uintptr_t)&glGenRenderbuffers },
   { "glGenTextures", (uintptr_t)&glGenTextures },
   { "glGetAttribLocation", (uintptr_t)&glGetAttribLocation },
@@ -583,7 +545,7 @@ DynLibFunction dynlib_functions[] = {
   { "glRenderbufferStorage", (uintptr_t)&glRenderbufferStorage },
   { "glScissor", (uintptr_t)&glScissor },
   { "glShaderSource", (uintptr_t)&glShaderSource },
-  { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
+  { "glTexImage2D", (uintptr_t)&glTexImage2D },
   { "glTexParameterf", (uintptr_t)&glTexParameterf },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
   { "glUniform1f", (uintptr_t)&glUniform1f },
@@ -598,7 +560,7 @@ DynLibFunction dynlib_functions[] = {
   { "glUseProgram", (uintptr_t)&glUseProgram },
   { "glVertexAttrib4fv", (uintptr_t)&glVertexAttrib4fv },
   { "glVertexAttribPointer", (uintptr_t)&glVertexAttribPointer },
-  { "glViewport", (uintptr_t)&glViewportHook },
+  { "glViewport", (uintptr_t)&glViewport },
 
   // this only uses setjmp in the JPEG loader but not longjmp
   // probably doesn't matter if they're compatible or not
