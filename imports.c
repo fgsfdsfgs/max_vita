@@ -338,6 +338,19 @@ void glGetBooleanvHook(GLenum pname, GLboolean *data) {
     glGetBooleanv(pname, data);
 }
 
+// Fails for:
+// 35841: GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
+// 35842: GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
+void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void * data) {
+  if (!level)
+    glCompressedTexImage2D(target, level, internalformat, width, height, border, imageSize, data);
+}
+
+void glTexImage2DHook(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data) {
+  if (!level)
+    glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
+}
+
 void glDepthMaskHook(GLuint mask) {
   cur_depthmask = mask;
   glDepthMask(mask);
@@ -501,7 +514,7 @@ DynLibFunction dynlib_functions[] = {
   { "glClearDepthf", (uintptr_t)&glClearDepthf },
   { "glClearStencil", (uintptr_t)&glClearStencil },
   { "glCompileShader", (uintptr_t)&glCompileShader },
-  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2D },
+  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2DHook },
   { "glCreateProgram", (uintptr_t)&glCreateProgram },
   { "glCreateShader", (uintptr_t)&glCreateShader },
   { "glCullFace", (uintptr_t)&glCullFace },
@@ -545,7 +558,7 @@ DynLibFunction dynlib_functions[] = {
   { "glRenderbufferStorage", (uintptr_t)&glRenderbufferStorage },
   { "glScissor", (uintptr_t)&glScissor },
   { "glShaderSource", (uintptr_t)&glShaderSource },
-  { "glTexImage2D", (uintptr_t)&glTexImage2D },
+  { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
   { "glTexParameterf", (uintptr_t)&glTexParameterf },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
   { "glUniform1f", (uintptr_t)&glUniform1f },
