@@ -12,6 +12,6 @@
 #define SCREEN_W 960
 #define SCREEN_H 544
 
-#define DEBUG_LOG 1
+// #define DEBUG_LOG 1
 
 #endif
