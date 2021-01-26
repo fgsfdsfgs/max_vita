@@ -58,8 +58,6 @@ static uint8_t fake_sF[3][0x100]; // stdout, stderr, stdin
 
 static int __stack_chk_guard_fake = 0x42424242;
 
-static GLuint cur_depthmask = GL_TRUE;
-
 FILE *stderr_fake = (FILE *)0x1337;
 
 int mkdir(const char *pathname, mode_t mode) {
@@ -283,18 +281,6 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
 
 // GL stuff
 
-void glGetProgramiv(GLuint program, GLenum pname, GLint *params) {
-  //debugPrintf("glGetProgramiv pname: 0x%X\n", pname);
-  if (pname == GL_INFO_LOG_LENGTH)
-    *params = 0;
-  else
-    *params = GL_TRUE;
-}
-
-void glGetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
-  if (length) *length = 0;
-}
-
 void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
   glGetShaderInfoLog(shader, maxLength, length, infoLog);
   debugPrintf("shader info log:\n%s\n", infoLog);
@@ -318,42 +304,6 @@ void glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, 
 
 void glBindRenderbuffer(GLenum target, GLuint rb) {
   // no
-}
-
-void glGetIntegervHook(GLenum pname, GLint *data) {
-  //debugPrintf("glGetIntegerv pname: 0x%X\n", pname);
-  glGetIntegerv(pname, data);
-  if (pname == GL_MAX_VERTEX_UNIFORM_VECTORS)
-    *data = 181 + 32; // maximum bones
-  else if (pname == 0x8B82)
-    *data = GL_TRUE;
-  else if (pname == GL_DRAW_FRAMEBUFFER_BINDING)
-    *data = 0;
-}
-
-void glGetBooleanvHook(GLenum pname, GLboolean *data) {
-  if (pname == GL_DEPTH_WRITEMASK)
-    *data = cur_depthmask;
-  else
-    glGetBooleanv(pname, data);
-}
-
-// Fails for:
-// 35841: GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
-// 35842: GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
-void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void * data) {
-  if (!level)
-    glCompressedTexImage2D(target, level, internalformat, width, height, border, imageSize, data);
-}
-
-void glTexImage2DHook(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data) {
-  if (!level)
-    glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
-}
-
-void glDepthMaskHook(GLuint mask) {
-  cur_depthmask = mask;
-  glDepthMask(mask);
 }
 
 // import table
@@ -514,7 +464,7 @@ DynLibFunction dynlib_functions[] = {
   { "glClearDepthf", (uintptr_t)&glClearDepthf },
   { "glClearStencil", (uintptr_t)&glClearStencil },
   { "glCompileShader", (uintptr_t)&glCompileShader },
-  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2DHook },
+  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2D },
   { "glCreateProgram", (uintptr_t)&glCreateProgram },
   { "glCreateShader", (uintptr_t)&glCreateShader },
   { "glCullFace", (uintptr_t)&glCullFace },
@@ -543,8 +493,8 @@ DynLibFunction dynlib_functions[] = {
   { "glGenTextures", (uintptr_t)&glGenTextures },
   { "glGetAttribLocation", (uintptr_t)&glGetAttribLocation },
   { "glGetError", (uintptr_t)&glGetError },
-  { "glGetBooleanv", (uintptr_t)&glGetBooleanvHook },
-  { "glGetIntegerv", (uintptr_t)&glGetIntegervHook },
+  { "glGetBooleanv", (uintptr_t)&glGetBooleanv },
+  { "glGetIntegerv", (uintptr_t)&glGetIntegerv },
   { "glGetProgramInfoLog", (uintptr_t)&glGetProgramInfoLog },
   { "glGetProgramiv", (uintptr_t)&glGetProgramiv },
   { "glGetShaderInfoLog", (uintptr_t)&glGetShaderInfoLogHook },
@@ -558,7 +508,7 @@ DynLibFunction dynlib_functions[] = {
   { "glRenderbufferStorage", (uintptr_t)&glRenderbufferStorage },
   { "glScissor", (uintptr_t)&glScissor },
   { "glShaderSource", (uintptr_t)&glShaderSource },
-  { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
+  { "glTexImage2D", (uintptr_t)&glTexImage2D },
   { "glTexParameterf", (uintptr_t)&glTexParameterf },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
   { "glUniform1f", (uintptr_t)&glUniform1f },
