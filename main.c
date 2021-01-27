@@ -5,7 +5,7 @@
 #include <psp2/ctrl.h>
 #include <psp2/power.h>
 #include <psp2/touch.h>
-#include <pib.h>
+#include <vitaGL.h>
 #include <kubridge.h>
 
 #include "config.h"
@@ -26,8 +26,6 @@ int main(void) {
   scePowerSetGpuClockFrequency(222);
   scePowerSetGpuXbarClockFrequency(166);
 
-  pibInit(PIB_SHACCCG | PIB_GET_PROC_ADDR_CORE);
-
   so_load(SO_PATH);
   so_resolve(dynlib_functions, dynlib_numfunctions);
 
@@ -41,14 +39,18 @@ int main(void) {
   so_flush_caches();
 
   so_excute_init_array();
-
   so_free_temp();
+
+  vglSetupRuntimeShaderCompiler(SHARK_OPT_UNSAFE, SHARK_ENABLE, SHARK_ENABLE, SHARK_ENABLE);
+  vglInitExtended(SCREEN_W, SCREEN_H, 0x1000000, SCE_GXM_MULTISAMPLE_4X);
+  vglUseVram(GL_TRUE);
 
   // won't save without it
   sceIoMkdir(DATA_PATH "/savegames", 0777);
 
   strcpy((char *)so_find_addr("StorageRootBuffer"), DATA_PATH);
   *(uint8_t *)so_find_addr("IsAndroidPaused") = 0;
+  *(uint8_t *)so_find_addr("UseRGBA8") = 1; // RGB565 fbos are not supported by vgl
 
   uint32_t (* initGraphics)(void) = (void *)so_find_addr("_Z12initGraphicsv");
   initGraphics();

@@ -17,9 +17,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/reent.h>
-#include <EGL/egl.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
+#include <vitaGL.h>
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/kernel/threadmgr.h>
@@ -29,6 +27,8 @@
 #include "so_util.h"
 #include "util.h"
 
+#define GL_MAX_VERTEX_UNIFORM_VECTORS 0x8DFB
+#define GL_DEPTH_WRITEMASK 0x0B72
 #define CLOCK_MONOTONIC 0
 
 extern int __aeabi_memclr;
@@ -281,104 +281,29 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
 
 // GL stuff
 
-void glGetIntegervHook(GLenum pname, GLint *data) {
-  glGetIntegerv(pname, data);
-  if (pname == GL_MAX_VERTEX_UNIFORM_VECTORS)
-    *data = (63 * 3) + 32; // piglet hardcodes 128! need this for the bones
-}
-
-// Piglet does not use softfp, so we need to write some wrappers
-
-__attribute__((naked)) void glClearColorWrapper(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "vmov s1, r1\n"
-    "vmov s2, r2\n"
-    "vmov s3, r3\n"
-    "b glClearColor\n"
-  );
-}
-
-__attribute__((naked)) void glClearDepthfWrapper(GLfloat d) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "b glClearDepthf\n"
-  );
-}
-
-__attribute__((naked)) void glDepthRangefWrapper(GLfloat near, GLfloat far) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "vmov s1, r1\n"
-    "b glDepthRangef\n"
-  );
-}
-
-__attribute__((naked)) void glUniform1fWrapper(GLint location, GLfloat v) {
-  asm volatile (
-    "vmov s0, r1\n"
-    "b glUniform1f\n"
-  );
-}
-
-__attribute__((naked)) void glUniform3fWrapper(GLint location, GLfloat v0, GLfloat v1, GLfloat v2) {
-  asm volatile (
-    "vmov s0, r1\n"
-    "vmov s1, r2\n"
-    "vmov s2, r3\n"
-    "b glUniform3f\n"
-  );
-}
-
-__attribute__((naked)) void glPolygonOffsetWrapper(GLfloat factor, GLfloat units) {
-  asm volatile (
-    "vmov s0, r0\n"
-    "vmov s1, r1\n"
-    "b glPolygonOffset\n"
-  );
-}
-
-__attribute__((naked)) void glTexParameterfWrapper(GLenum target, GLenum pname, GLfloat param) {
-  asm volatile (
-    "vmov s0, r2\n"
-    "b glTexParameterf\n"
-  );
-}
-
-// Fails for:
-// 35841: GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
-// 35842: GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
-void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void * data) {
-  if (!level)
-    glCompressedTexImage2D(target, level, internalformat, width, height, border, imageSize, data);
-}
-
-void glTexImage2DHook(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void * data) {
-  if (!level)
-    glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
-}
-
 void glGetShaderInfoLogHook(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
-  static char srcbuf[0x2000];
-  GLsizei len = 0;
-  glGetShaderSource(shader, sizeof(srcbuf), &len, srcbuf);
-  if (len > 0) debugPrintf("\nshader source:\n%s\n", srcbuf);
   glGetShaderInfoLog(shader, maxLength, length, infoLog);
   debugPrintf("shader info log:\n%s\n", infoLog);
 }
 
-void glGetProgramInfoLogHook(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog) {
-  glGetProgramInfoLog(program, maxLength, length, infoLog);
-  debugPrintf("program info log:\n%s\n", infoLog);
+void glGenRenderbuffers(GLsizei num, GLuint *v) {
+  memset(v, 0, sizeof(GLuint) * num);
 }
 
-void glViewportHook(GLint x, GLint y, GLsizei w, GLsizei h) {
-  // HACK: the game really wants to force 16:9, so it centers a 960x540 viewport
-  if (w == 960 && h == 540) {
-    h = 544;
-    y = 0;
-  }
-  glViewport(x, y, w, h);
+void glDeleteRenderbuffers(GLsizei num, GLuint *v) {
+  // no
+}
+
+void glFramebufferRenderbuffer(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) {
+  // no
+}
+
+void glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, GLsizei height) {
+  // no
+}
+
+void glBindRenderbuffer(GLenum target, GLuint rb) {
+  // no
 }
 
 // import table
@@ -498,7 +423,7 @@ DynLibFunction dynlib_functions[] = {
   { "localtime_r", (uintptr_t)&localtime_r },
   { "strftime", (uintptr_t)&strftime },
 
-  { "eglGetProcAddress", (uintptr_t)&eglGetProcAddress },
+  { "eglGetProcAddress", (uintptr_t)&vglGetProcAddress },
 
   { "abort", (uintptr_t)&abort },
   { "exit", (uintptr_t)&exit },
@@ -535,11 +460,11 @@ DynLibFunction dynlib_functions[] = {
   { "glBufferData", (uintptr_t)&glBufferData },
   { "glCheckFramebufferStatus", (uintptr_t)&glCheckFramebufferStatus },
   { "glClear", (uintptr_t)&glClear },
-  { "glClearColor", (uintptr_t)&glClearColorWrapper },
-  { "glClearDepthf", (uintptr_t)&glClearDepthfWrapper },
+  { "glClearColor", (uintptr_t)&glClearColor },
+  { "glClearDepthf", (uintptr_t)&glClearDepthf },
   { "glClearStencil", (uintptr_t)&glClearStencil },
   { "glCompileShader", (uintptr_t)&glCompileShader },
-  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2DHook },
+  { "glCompressedTexImage2D", (uintptr_t)&glCompressedTexImage2D },
   { "glCreateProgram", (uintptr_t)&glCreateProgram },
   { "glCreateShader", (uintptr_t)&glCreateShader },
   { "glCullFace", (uintptr_t)&glCullFace },
@@ -551,7 +476,7 @@ DynLibFunction dynlib_functions[] = {
   { "glDeleteTextures", (uintptr_t)&glDeleteTextures },
   { "glDepthFunc", (uintptr_t)&glDepthFunc },
   { "glDepthMask", (uintptr_t)&glDepthMask },
-  { "glDepthRangef", (uintptr_t)&glDepthRangefWrapper },
+  { "glDepthRangef", (uintptr_t)&glDepthRangef },
   { "glDisable", (uintptr_t)&glDisable },
   { "glDisableVertexAttribArray", (uintptr_t)&glDisableVertexAttribArray },
   { "glDrawArrays", (uintptr_t)&glDrawArrays },
@@ -578,19 +503,19 @@ DynLibFunction dynlib_functions[] = {
   { "glGetUniformLocation", (uintptr_t)&glGetUniformLocation },
   { "glHint", (uintptr_t)&glHint },
   { "glLinkProgram", (uintptr_t)&glLinkProgram },
-  { "glPolygonOffset", (uintptr_t)&glPolygonOffsetWrapper },
+  { "glPolygonOffset", (uintptr_t)&glPolygonOffset },
   { "glReadPixels", (uintptr_t)&glReadPixels },
   { "glRenderbufferStorage", (uintptr_t)&glRenderbufferStorage },
   { "glScissor", (uintptr_t)&glScissor },
   { "glShaderSource", (uintptr_t)&glShaderSource },
-  { "glTexImage2D", (uintptr_t)&glTexImage2DHook },
-  { "glTexParameterf", (uintptr_t)&glTexParameterfWrapper },
+  { "glTexImage2D", (uintptr_t)&glTexImage2D },
+  { "glTexParameterf", (uintptr_t)&glTexParameterf },
   { "glTexParameteri", (uintptr_t)&glTexParameteri },
-  { "glUniform1f", (uintptr_t)&glUniform1fWrapper },
+  { "glUniform1f", (uintptr_t)&glUniform1f },
   { "glUniform1fv", (uintptr_t)&glUniform1fv },
   { "glUniform1i", (uintptr_t)&glUniform1i },
   { "glUniform2fv", (uintptr_t)&glUniform2fv },
-  { "glUniform3f", (uintptr_t)&glUniform3fWrapper },
+  { "glUniform3f", (uintptr_t)&glUniform3f },
   { "glUniform3fv", (uintptr_t)&glUniform3fv },
   { "glUniform4fv", (uintptr_t)&glUniform4fv },
   { "glUniformMatrix3fv", (uintptr_t)&glUniformMatrix3fv },
@@ -598,7 +523,7 @@ DynLibFunction dynlib_functions[] = {
   { "glUseProgram", (uintptr_t)&glUseProgram },
   { "glVertexAttrib4fv", (uintptr_t)&glVertexAttrib4fv },
   { "glVertexAttribPointer", (uintptr_t)&glVertexAttribPointer },
-  { "glViewport", (uintptr_t)&glViewportHook },
+  { "glViewport", (uintptr_t)&glViewport },
 
   // this only uses setjmp in the JPEG loader but not longjmp
   // probably doesn't matter if they're compatible or not
