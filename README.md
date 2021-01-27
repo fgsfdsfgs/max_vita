@@ -12,7 +12,7 @@ Before installing the game, you should do the following on your Vita:
 ux0:tai/kubridge.skprx
 ```
 2. (optional) [Install fdfix](https://github.com/TheOfficialFloW/FdFix) if you don't want your game to crash on suspend.
-2. [Install PIB/Piglet and the runtime shader compiler](https://github.com/SonicMastr/PIB-Configuration-Tool).
+2. [Extract the runtime shader compiler](https://samilops2.gitbook.io/vita-troubleshooting-guide/shader-compiler/extract-libshacccg.suprx).
 3. Reboot.
 
 You're going to need:
@@ -31,13 +31,14 @@ To install:
 
 If the game crashes on startup, double check the structure of your `maxpayne` folder. If you are absolutely sure that it is correct, please post an issue with your last crash dump attached.
 
-### How to build
+### How to build the `master` branch
 
 You're going to need these things recompiled with the `-mfloat-abi=softfp` compiler flag:
 * The entirety of [VitaSDK](https://github.com/vitasdk/buildscripts/actions/runs/488000025)
-* [openal-soft](https://github.com/Rinnegatamante/openal-soft)
-* [SDL2](https://github.com/isage/SDL-mirror/tree/vita-2.0.14)
-* [Pigs-in-a-Blanket](https://github.com/SonicMastr/Pigs-In-A-Blanket)
+* [openal-soft](https://github.com/isage/openal-soft/tree/vita-1.19.1)
+* [libmathneon](https://github.com/Rinnegatamante/math-neon)
+* [vitashark](https://github.com/Rinnegatamante/vitaShaRK)
+* [vitaGL](https://github.com/Rinnegatamante/vitaGL/tree/gtasa/) (build with `HAVE_SBRK=1 HAVE_SHARK=1 SOFTFP_ABI=1 NO_DEBUG=1`)
 
 You're also going to need the static library and header for [kubridge](https://github.com/TheOfficialFloW/kubridge):
 ```
@@ -58,7 +59,8 @@ make && make install
 ### Credits
 
 * TheOfficialFloW for kubridge, figuring out how to do this shit, and much of the code;
-* Rinnegatamante and frangarcj for help with graphics-related stuff;
-* CBPS/SonicMastr for PIB;
+* Rinnegatamante for vitaGL and help with graphics-related stuff;
+* Bythos and frangarcj for help with graphics-related stuff;
+* CBPS/SonicMastr for PIB, which was used on earlier stages of development;
 * Brandonheat8 for providing the old LiveArea assets;
 * Freakler for providing the new LiveArea assets.
