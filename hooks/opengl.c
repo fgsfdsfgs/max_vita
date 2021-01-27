@@ -8,7 +8,7 @@
 #include "../so_util.h"
 
 void NVEventEGLSwapBuffers(void) {
-  vglSwapBuffers();
+  vglSwapBuffers(GL_FALSE);
 }
 
 void NVEventEGLMakeCurrent(void) {

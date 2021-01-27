@@ -33,13 +33,13 @@ target_link_libraries(max.elf
   stdc++
   m
   openal
-  SDL2
   vitaGL
   mathneon
   vitashark
   kubridge_stub
   SceAppMgr_stub
   SceAudio_stub
+  SceAudioIn_stub
   SceCtrl_stub
   SceCommonDialog_stub
   SceDisplay_stub

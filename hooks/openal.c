@@ -11,6 +11,35 @@
 #include "../util.h"
 #include "../so_util.h"
 
+// the game doesn't properly unqueue buffers to be available for deletion,
+// so we do that for it
+
+static ALuint last_stopped_src = 0;
+
+// remember the last stopped source cause the game does
+// alStopSource(); alDeleteBuffers();
+void alSourceStopHook(ALuint src) {
+  last_stopped_src = src;
+  alSourceStop(src);
+}
+
+void alDeleteBuffersHook(ALsizei n, ALuint *bufs) {
+  if (last_stopped_src) {
+    // there was an alStopSource() call right before this is happening,
+    // properly handle the source before deleting its buffers
+    ALint type = 0;
+    alGetSourcei(last_stopped_src, AL_SOURCE_TYPE, &type);
+    // if the source is streaming, unqueue the buffers from it,
+    // otherwise just set its buffer to NULL
+    if (type == AL_STREAMING)
+      alSourceUnqueueBuffers(last_stopped_src, n, bufs);
+    else
+      alSourcei(last_stopped_src, AL_BUFFER, 0);
+    last_stopped_src = 0;
+  }
+  alDeleteBuffers(n, bufs);
+}
+
 void patch_openal(void) {
   // used for openal
   hook_thumb(so_find_addr("InitializeCriticalSection"), (uintptr_t)ret0);
@@ -27,7 +56,7 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alBufferi"), (uintptr_t)alBufferi);
   hook_thumb(so_find_addr("alBufferiv"), (uintptr_t)alBufferiv);
   hook_thumb(so_find_addr("alDeleteAuxiliaryEffectSlots"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alDeleteBuffers"), (uintptr_t)alDeleteBuffers);
+  hook_thumb(so_find_addr("alDeleteBuffers"), (uintptr_t)alDeleteBuffersHook);
   hook_thumb(so_find_addr("alDeleteEffects"), (uintptr_t)ret0);
   hook_thumb(so_find_addr("alDeleteFilters"), (uintptr_t)ret0);
   hook_thumb(so_find_addr("alDeleteSources"), (uintptr_t)alDeleteSources);
@@ -114,7 +143,7 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alSourceQueueBuffers"), (uintptr_t)alSourceQueueBuffers);
   hook_thumb(so_find_addr("alSourceRewind"), (uintptr_t)alSourceRewind);
   hook_thumb(so_find_addr("alSourceRewindv"), (uintptr_t)alSourceRewindv);
-  hook_thumb(so_find_addr("alSourceStop"), (uintptr_t)alSourceStop);
+  hook_thumb(so_find_addr("alSourceStop"), (uintptr_t)alSourceStopHook);
   hook_thumb(so_find_addr("alSourceStopv"), (uintptr_t)alSourceStopv);
   hook_thumb(so_find_addr("alSourceUnqueueBuffers"), (uintptr_t)alSourceUnqueueBuffers);
   hook_thumb(so_find_addr("alSourcef"), (uintptr_t)alSourcef);
