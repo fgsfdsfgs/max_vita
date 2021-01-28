@@ -62,5 +62,6 @@ make && make install
 * Rinnegatamante for vitaGL and help with graphics-related stuff;
 * Bythos and frangarcj for help with graphics-related stuff;
 * CBPS/SonicMastr for PIB, which was used on earlier stages of development;
+* isage for the native audio backend for OpenAL-Soft;
 * Brandonheat8 for providing the old LiveArea assets;
 * Freakler for providing the new LiveArea assets.
