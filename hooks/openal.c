@@ -4,8 +4,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#define AL_ALEXT_PROTOTYPES
 #include <AL/al.h>
 #include <AL/alc.h>
+#include <AL/alext.h>
 #include <AL/efx.h>
 
 #include "../util.h"
@@ -44,10 +46,10 @@ void patch_openal(void) {
   // used for openal
   hook_thumb(so_find_addr("InitializeCriticalSection"), (uintptr_t)ret0);
   // openal API
-  hook_thumb(so_find_addr("alAuxiliaryEffectSlotf"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alAuxiliaryEffectSlotfv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alAuxiliaryEffectSloti"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alAuxiliaryEffectSlotiv"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alAuxiliaryEffectSlotf"), (uintptr_t)alAuxiliaryEffectSlotf);
+  hook_thumb(so_find_addr("alAuxiliaryEffectSlotfv"), (uintptr_t)alAuxiliaryEffectSlotfv);
+  hook_thumb(so_find_addr("alAuxiliaryEffectSloti"), (uintptr_t)alAuxiliaryEffectSloti);
+  hook_thumb(so_find_addr("alAuxiliaryEffectSlotiv"), (uintptr_t)alAuxiliaryEffectSlotiv);
   hook_thumb(so_find_addr("alBuffer3f"), (uintptr_t)alBuffer3f);
   hook_thumb(so_find_addr("alBuffer3i"), (uintptr_t)alBuffer3i);
   hook_thumb(so_find_addr("alBufferData"), (uintptr_t)alBufferData);
@@ -55,33 +57,33 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alBufferfv"), (uintptr_t)alBufferfv);
   hook_thumb(so_find_addr("alBufferi"), (uintptr_t)alBufferi);
   hook_thumb(so_find_addr("alBufferiv"), (uintptr_t)alBufferiv);
-  hook_thumb(so_find_addr("alDeleteAuxiliaryEffectSlots"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alDeleteAuxiliaryEffectSlots"), (uintptr_t)alDeleteAuxiliaryEffectSlots);
   hook_thumb(so_find_addr("alDeleteBuffers"), (uintptr_t)alDeleteBuffersHook);
-  hook_thumb(so_find_addr("alDeleteEffects"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alDeleteFilters"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alDeleteEffects"), (uintptr_t)alDeleteEffects);
+  hook_thumb(so_find_addr("alDeleteFilters"), (uintptr_t)alDeleteFilters);
   hook_thumb(so_find_addr("alDeleteSources"), (uintptr_t)alDeleteSources);
   hook_thumb(so_find_addr("alDisable"), (uintptr_t)alDisable);
   hook_thumb(so_find_addr("alDistanceModel"), (uintptr_t)alDistanceModel);
   hook_thumb(so_find_addr("alDopplerFactor"), (uintptr_t)alDopplerFactor);
   hook_thumb(so_find_addr("alDopplerVelocity"), (uintptr_t)alDopplerVelocity);
-  hook_thumb(so_find_addr("alEffectf"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alEffectfv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alEffecti"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alEffectiv"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alEffectf"), (uintptr_t)alEffectf);
+  hook_thumb(so_find_addr("alEffectfv"), (uintptr_t)alEffectfv);
+  hook_thumb(so_find_addr("alEffecti"), (uintptr_t)alEffecti);
+  hook_thumb(so_find_addr("alEffectiv"), (uintptr_t)alEffectiv);
   hook_thumb(so_find_addr("alEnable"), (uintptr_t)alEnable);
-  hook_thumb(so_find_addr("alFilterf"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alFilterfv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alFilteri"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alFilteriv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGenAuxiliaryEffectSlots"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alFilterf"), (uintptr_t)alFilterf);
+  hook_thumb(so_find_addr("alFilterfv"), (uintptr_t)alFilterfv);
+  hook_thumb(so_find_addr("alFilteri"), (uintptr_t)alFilteri);
+  hook_thumb(so_find_addr("alFilteriv"), (uintptr_t)alFilteriv);
+  hook_thumb(so_find_addr("alGenAuxiliaryEffectSlots"), (uintptr_t)alGenAuxiliaryEffectSlots);
   hook_thumb(so_find_addr("alGenBuffers"), (uintptr_t)alGenBuffers);
-  hook_thumb(so_find_addr("alGenEffects"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGenFilters"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alGenEffects"), (uintptr_t)alGenEffects);
+  hook_thumb(so_find_addr("alGenFilters"), (uintptr_t)alGenFilters);
   hook_thumb(so_find_addr("alGenSources"), (uintptr_t)alGenSources);
-  hook_thumb(so_find_addr("alGetAuxiliaryEffectSlotf"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetAuxiliaryEffectSlotfv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetAuxiliaryEffectSloti"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetAuxiliaryEffectSlotiv"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alGetAuxiliaryEffectSlotf"), (uintptr_t)alGetAuxiliaryEffectSlotf);
+  hook_thumb(so_find_addr("alGetAuxiliaryEffectSlotfv"), (uintptr_t)alGetAuxiliaryEffectSlotfv);
+  hook_thumb(so_find_addr("alGetAuxiliaryEffectSloti"), (uintptr_t)alGetAuxiliaryEffectSloti);
+  hook_thumb(so_find_addr("alGetAuxiliaryEffectSlotiv"), (uintptr_t)alGetAuxiliaryEffectSlotiv);
   hook_thumb(so_find_addr("alGetBoolean"), (uintptr_t)alGetBoolean);
   hook_thumb(so_find_addr("alGetBooleanv"), (uintptr_t)alGetBooleanv);
   hook_thumb(so_find_addr("alGetBuffer3f"), (uintptr_t)alGetBuffer3f);
@@ -92,16 +94,16 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alGetBufferiv"), (uintptr_t)alGetBufferiv);
   hook_thumb(so_find_addr("alGetDouble"), (uintptr_t)alGetDouble);
   hook_thumb(so_find_addr("alGetDoublev"), (uintptr_t)alGetDoublev);
-  hook_thumb(so_find_addr("alGetEffectf"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetEffectfv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetEffecti"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetEffectiv"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alGetEffectf"), (uintptr_t)alGetEffectf);
+  hook_thumb(so_find_addr("alGetEffectfv"), (uintptr_t)alGetEffectfv);
+  hook_thumb(so_find_addr("alGetEffecti"), (uintptr_t)alGetEffecti);
+  hook_thumb(so_find_addr("alGetEffectiv"), (uintptr_t)alGetEffectiv);
   hook_thumb(so_find_addr("alGetEnumValue"), (uintptr_t)alGetEnumValue);
   hook_thumb(so_find_addr("alGetError"), (uintptr_t)alGetError);
-  hook_thumb(so_find_addr("alGetFilterf"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetFilterfv"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetFilteri"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alGetFilteriv"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alGetFilterf"), (uintptr_t)alGetFilterf);
+  hook_thumb(so_find_addr("alGetFilterfv"), (uintptr_t)alGetFilterfv);
+  hook_thumb(so_find_addr("alGetFilteri"), (uintptr_t)alGetFilteri);
+  hook_thumb(so_find_addr("alGetFilteriv"), (uintptr_t)alGetFilteriv);
   hook_thumb(so_find_addr("alGetFloat"), (uintptr_t)alGetFloat);
   hook_thumb(so_find_addr("alGetFloatv"), (uintptr_t)alGetFloatv);
   hook_thumb(so_find_addr("alGetInteger"), (uintptr_t)alGetInteger);
@@ -120,12 +122,12 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alGetSourcei"), (uintptr_t)alGetSourcei);
   hook_thumb(so_find_addr("alGetSourceiv"), (uintptr_t)alGetSourceiv);
   hook_thumb(so_find_addr("alGetString"), (uintptr_t)alGetString);
-  hook_thumb(so_find_addr("alIsAuxiliaryEffectSlot"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alIsAuxiliaryEffectSlot"), (uintptr_t)alIsAuxiliaryEffectSlot);
   hook_thumb(so_find_addr("alIsBuffer"), (uintptr_t)alIsBuffer);
-  hook_thumb(so_find_addr("alIsEffect"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alIsEffect"), (uintptr_t)alIsEffect);
   hook_thumb(so_find_addr("alIsEnabled"), (uintptr_t)alIsEnabled);
   hook_thumb(so_find_addr("alIsExtensionPresent"), (uintptr_t)alIsExtensionPresent);
-  hook_thumb(so_find_addr("alIsFilter"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alIsFilter"), (uintptr_t)alIsFilter);
   hook_thumb(so_find_addr("alIsSource"), (uintptr_t)alIsSource);
   hook_thumb(so_find_addr("alListener3f"), (uintptr_t)alListener3f);
   hook_thumb(so_find_addr("alListener3i"), (uintptr_t)alListener3i);
@@ -133,7 +135,6 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alListenerfv"), (uintptr_t)alListenerfv);
   hook_thumb(so_find_addr("alListeneri"), (uintptr_t)alListeneri);
   hook_thumb(so_find_addr("alListeneriv"), (uintptr_t)alListeneriv);
-  hook_thumb(so_find_addr("alSetError"), (uintptr_t)ret0);
   hook_thumb(so_find_addr("alSource3f"), (uintptr_t)alSource3f);
   hook_thumb(so_find_addr("alSource3i"), (uintptr_t)alSource3i);
   hook_thumb(so_find_addr("alSourcePause"), (uintptr_t)alSourcePause);
@@ -167,17 +168,11 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alcGetIntegerv"), (uintptr_t)alcGetIntegerv);
   hook_thumb(so_find_addr("alcGetProcAddress"), (uintptr_t)alcGetProcAddress);
   hook_thumb(so_find_addr("alcGetString"), (uintptr_t)alcGetString);
-  hook_thumb(so_find_addr("alcGetThreadContext"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alcGetThreadContext"), (uintptr_t)alcGetThreadContext);
   hook_thumb(so_find_addr("alcIsExtensionPresent"), (uintptr_t)alcIsExtensionPresent);
   hook_thumb(so_find_addr("alcMakeContextCurrent"), (uintptr_t)alcMakeContextCurrent);
   hook_thumb(so_find_addr("alcOpenDevice"), (uintptr_t)alcOpenDevice);
   hook_thumb(so_find_addr("alcProcessContext"), (uintptr_t)alcProcessContext);
-  hook_thumb(so_find_addr("alcSetThreadContext"), (uintptr_t)ret0);
+  hook_thumb(so_find_addr("alcSetThreadContext"), (uintptr_t)alcSetThreadContext);
   hook_thumb(so_find_addr("alcSuspendContext"), (uintptr_t)alcSuspendContext);
-  hook_thumb(so_find_addr("alc_null_deinit"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alc_null_init"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("alc_null_probe"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("aluHandleDisconnect"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("aluInitPanning"), (uintptr_t)ret0);
-  hook_thumb(so_find_addr("aluMixData"), (uintptr_t)ret0);
 }
