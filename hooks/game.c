@@ -22,6 +22,8 @@ static int *deviceChip;
 static int *deviceForm;
 static int *definedDevice;
 
+static int cur_language = -1; // unset
+
 int NvAPKOpen(const char *path) {
   // debugPrintf("NvAPKOpen: %s\n", path);
   return 0;
@@ -257,7 +259,36 @@ float WarGamepad_GetGamepadAxis(int padnum, int axis) {
   return 0.0f;
 }
 
+int GetAndroidCurrentLanguage(void) {
+  if (cur_language < 0) {
+    // read it from a file if available, otherwise set to english
+    FILE *f = fopen(DATA_PATH "/language.txt", "r");
+    if (f) {
+      fscanf(f, "%d", &cur_language);
+      fclose(f);
+    }
+    if (cur_language < 0)
+      cur_language = 0; // english
+  }
+  return cur_language;
+}
+
+void SetAndroidCurrentLanguage(int lang) {
+  if (cur_language != lang) {
+    // changed; save it to a file
+    FILE *f = fopen(DATA_PATH "/language.txt", "w");
+    if (f) {
+      fprintf(f, "%d", lang);
+      fclose(f);
+    }
+    cur_language = lang;
+  }
+}
+
 void patch_game(void) {
+  // make it crash in an obvious location when it calls JNI methods
+  hook_thumb(so_find_addr("_Z24NVThreadGetCurrentJNIEnvv"), (uintptr_t)0x1337);
+
   hook_thumb(so_find_addr("__cxa_guard_acquire"), (uintptr_t)&__cxa_guard_acquire);
   hook_thumb(so_find_addr("__cxa_guard_release"), (uintptr_t)&__cxa_guard_release);
 
@@ -288,7 +319,9 @@ void patch_game(void) {
   // TODO: implement touch here
   hook_thumb(so_find_addr("_Z13ProcessEventsb"), (uintptr_t)ProcessEvents);
 
-  hook_thumb(so_find_addr("_Z25GetAndroidCurrentLanguagev"), (uintptr_t)ret0);
+  // both set and get are called, remember the language that it sets
+  hook_thumb(so_find_addr("_Z25GetAndroidCurrentLanguagev"), (uintptr_t)GetAndroidCurrentLanguage);
+  hook_thumb(so_find_addr("_Z25SetAndroidCurrentLanguagei"), (uintptr_t)SetAndroidCurrentLanguage);
 
   hook_thumb(so_find_addr("_Z14AND_DeviceTypev"), (uintptr_t)AND_DeviceType);
   hook_thumb(so_find_addr("_Z16AND_DeviceLocalev"), (uintptr_t)AND_DeviceLocale);
