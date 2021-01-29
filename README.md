@@ -53,7 +53,7 @@ After you've obtained all the dependencies and ensured VitaSDK is properly insta
 git clone https://github.com/fgsfdsfgs/max_vita.git && cd max_vita
 mkdir build && cd build
 cmake -G"Unix Makefiles" ..
-make && make install
+make
 ```
 
 ### Credits
