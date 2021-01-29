@@ -1,3 +1,11 @@
+/* imports.c -- .so import resolution
+ *
+ * Copyright (C) 2021 fgsfds, Andy Nguyen
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 #ifndef __IMPORTS_H__
 #define __IMPORTS_H__
 
