@@ -233,9 +233,9 @@ int WarGamepad_GetGamepadButtons(int padnum) {
   for (int i = 0; i < touch.reportNum; i++) {
     if (touch.report[i].y > 1088/2) {
       if (touch.report[i].x < 1920/2)
-        mask |= 0x1000; // L3
+        mask |= 0x40; // L1
       else
-        mask |= 0x2000; // R3
+        mask |= 0x80; // R1
     }
   }
 
