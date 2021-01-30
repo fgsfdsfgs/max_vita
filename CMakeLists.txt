@@ -52,6 +52,7 @@ target_link_libraries(max.elf
   ScePower_stub
   SceTouch_stub
   SceMotion_stub
+  SceVshBridge_stub
 )
 
 vita_create_self(eboot.bin max.elf UNSAFE)

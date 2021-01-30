@@ -9,10 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <psp2/io/dirent.h>
-#include <psp2/ctrl.h>
-#include <psp2/power.h>
-#include <psp2/touch.h>
+#include <vitasdk.h>
 #include <vitaGL.h>
 #include <kubridge.h>
 
@@ -68,6 +65,13 @@ static void check_data(void) {
   }
 }
 
+static int check_kubridge(void) {
+  // taken from VitaShell
+  extern SceUID _vshKernelSearchModuleByName(const char *, int *);
+  int search_unk[2];
+  return _vshKernelSearchModuleByName("kubridge", search_unk);
+}
+
 int main(void) {
   char path[0x200];
 
@@ -77,6 +81,9 @@ int main(void) {
   scePowerSetBusClockFrequency(222);
   scePowerSetGpuClockFrequency(222);
   scePowerSetGpuXbarClockFrequency(166);
+
+  if (check_kubridge() < 0)
+    fatal_error("It appears that kubridge is not loaded.\nPlease install it and reboot.");
 
   if (find_data() < 0)
     fatal_error("Could not find\n" DATA_PATH "\non uma0, imc0 or ux0.");
