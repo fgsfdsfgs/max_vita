@@ -215,12 +215,10 @@ int WarGamepad_GetGamepadButtons(int padnum) {
     mask |= 0x10;
   if (pad.buttons & SCE_CTRL_SELECT)
     mask |= 0x20;
-/*
-  if (pad.buttons & SCE_CTRL_L1)
-    mask |= 0x40;
-  if (pad.buttons & SCE_CTRL_R1)
-    mask |= 0x80;
-*/
+  if (pad.buttons & SCE_CTRL_L2)
+    mask |= 0x40; // L1
+  if (pad.buttons & SCE_CTRL_R2)
+    mask |= 0x80; // R1
   if (pad.buttons & SCE_CTRL_UP)
     mask |= 0x100;
   if (pad.buttons & SCE_CTRL_DOWN)
