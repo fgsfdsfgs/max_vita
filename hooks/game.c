@@ -77,7 +77,6 @@ char *OS_FileGetArchiveName(int mode) {
 }
 
 void ExitAndroidGame(int code) {
-  // pibTerm();
   sceKernelExitProcess(0);
 }
 
@@ -86,12 +85,19 @@ int thread_stub(SceSize args, int *argp) {
   void *arg = (void *)argp[1];
   char *out = (char *)argp[2];
   out[0x41] = 1; // running
-  return func(arg);
+  int ret = func(arg);
+  // all threads in Max that are spawned this way are one-shot,
+  // so it's our responsibility to free the allocated resources
+  sceKernelExitDeleteThread(ret);
+  return 0;
 }
 
+// this is supposed to allocate and return a thread handle struct, but the game never uses it
+// and never frees it, so we just return a pointer to some static garbage
 void *OS_ThreadLaunch(int (* func)(), void *arg, int r2, char *name, int r4, int priority) {
-  int min_priority = 191;
-  int max_priority = 64;
+  static char buf[0x48];
+  const int min_priority = 0xA0;
+  const int max_priority = 0x60;
   int vita_priority;
 
   switch (priority) {
@@ -114,9 +120,11 @@ void *OS_ThreadLaunch(int (* func)(), void *arg, int r2, char *name, int r4, int
 
   // debugPrintf("OS_ThreadLaunch %s with priority %x\n", name, vita_priority);
 
-  SceUID thid = sceKernelCreateThread(name, (SceKernelThreadEntry)thread_stub, vita_priority, 1 * 1024 * 1024, 0, 0, NULL);
+  SceUID thid = sceKernelCreateThread(name, (SceKernelThreadEntry)thread_stub, vita_priority, 128 * 1024, 0, 0, NULL);
   if (thid >= 0) {
-    char *out = malloc(0x48);
+    // fake thread handle (see above)
+    char *out = buf;
+    *(int *)(out + 0x24) = thid;
 
     uintptr_t args[3];
     args[0] = (uintptr_t)func;
