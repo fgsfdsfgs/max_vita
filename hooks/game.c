@@ -140,7 +140,7 @@ void *OS_ThreadLaunch(int (* func)(), void *arg, int r2, char *name, int r4, int
 
 int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
   char fullpath[1024];
-  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/%s", file);
+  snprintf(fullpath, sizeof(fullpath), "%s/%s", fs_root, file);
 
   debugPrintf("ReadDataFromPrivateStorage %s\n", fullpath);
 
@@ -171,7 +171,7 @@ int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
 
 int WriteDataToPrivateStorage(const char *file, const void *data, int size) {
   char fullpath[1024];
-  snprintf(fullpath, sizeof(fullpath), DATA_PATH "/%s", file);
+  snprintf(fullpath, sizeof(fullpath), "%s/%s", fs_root, file);
 
   debugPrintf("WriteDataToPrivateStorage %s\n", fullpath);
 
@@ -278,7 +278,9 @@ float WarGamepad_GetGamepadAxis(int padnum, int axis) {
 int GetAndroidCurrentLanguage(void) {
   if (cur_language < 0) {
     // read it from a file if available, otherwise set to english
-    FILE *f = fopen(DATA_PATH "/language.txt", "r");
+    char fname[0x200];
+    snprintf(fname, sizeof(fname), "%s/language.txt", fs_root);
+    FILE *f = fopen(fname, "r");
     if (f) {
       fscanf(f, "%d", &cur_language);
       fclose(f);
@@ -292,7 +294,9 @@ int GetAndroidCurrentLanguage(void) {
 void SetAndroidCurrentLanguage(int lang) {
   if (cur_language != lang) {
     // changed; save it to a file
-    FILE *f = fopen(DATA_PATH "/language.txt", "w");
+    char fname[0x200];
+    snprintf(fname, sizeof(fname), "%s/language.txt", fs_root);
+    FILE *f = fopen(fname, "w");
     if (f) {
       fprintf(f, "%d", lang);
       fclose(f);

@@ -22,6 +22,7 @@ add_executable(max.elf
   util.c
   so_util.c
   imports.c
+  error.c
   hooks/opengl.c
   hooks/openal.c
   hooks/game.c
@@ -37,6 +38,7 @@ target_link_libraries(max.elf
   mathneon
   vitashark
   kubridge_stub
+  SceAppUtil_stub
   SceAppMgr_stub
   SceAudio_stub
   SceAudioIn_stub

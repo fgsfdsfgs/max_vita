@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "util.h"
+#include "error.h"
 #include "so_util.h"
 #include "elf.h"
 
@@ -262,6 +263,6 @@ uintptr_t so_find_addr(const char *symbol) {
       return (uintptr_t)text_base + syms[i].st_value;
   }
 
-  debugPrintf("Error: could not find symbol %s\n", symbol);
+  fatal_error("Could not find .so symbol:\n%s", symbol);
   return 0;
 }

@@ -9,6 +9,8 @@
 #ifndef __UTIL_H__
 #define __UTIL_H__
 
+extern char fs_root[];
+
 void *memcpy_neon(void *destination, const void *source, size_t num);
 
 int debugPrintf(char *text, ...);

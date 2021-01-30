@@ -16,13 +16,15 @@
 #include "config.h"
 #include "util.h"
 
+char fs_root[0x200] = "ux0:" DATA_PATH;
+
 int debugPrintf(char *text, ...) {
 #ifdef DEBUG_LOG
   va_list list;
   static char string[0x1000];
 
   va_start(list, text);
-  vsprintf(string, text, list);
+  vsnprintf(string, sizeof(string), text, list);
   va_end(list);
 
   SceUID fd = sceIoOpen(LOG_PATH, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_APPEND, 0777);
