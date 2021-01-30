@@ -26,10 +26,16 @@ To install:
 1. Install the latest VPK from the Releases page.
 2. Extract the `assets` folder from your `.apk` to `ux0:/data` and rename it to `maxpayne`.
 3. Extract `lib/armeabi-v7a/libMaxPayne.so` from your `.apk` to `ux0:/data/maxpayne`.
-4. Extract the contents of the `.obb` file into `ux0:/data/maxpayne`. You can skip all the `.msf` files except for `MaxPayneSoundsv2.msf`.
-5. Extract the contents of the `data.zip` from the latest release into `ux0:/data/maxpayne`. Replace everything.
+4. Extract the contents of the `.obb` file into `ux0:/data/maxpayne`. You can skip all the `.msf` files except for `MaxPayneSoundsv2.msf` and any extra languages that you want.
+5. Extract the contents of the `data.zip` from the latest release into `ux0:/data`. Replace everything.
 
-If the game crashes on startup, double check the structure of your `maxpayne` folder. If you are absolutely sure that it is correct, please post an issue with your last crash dump attached.
+You can put the game data onto `uma0:` or `imc0:` instead of `ux0:`. Paths remain the same.
+
+The game will show an error message if it detects that anything is wrong. Please read those and check the relevant parts of your setup.
+
+If the error says `Could not find symbol ...`, that likely means you have the wrong `.apk`. You need one for v1.7, others **will not work**.
+
+If the game crashes on startup, please post an issue with your last crash dump attached.
 
 ### How to build the `master` branch
 
