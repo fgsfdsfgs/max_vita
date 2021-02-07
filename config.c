@@ -23,7 +23,7 @@ int read_config(const char *file) {
   config.use_fios2 = 1;
   config.io_cache_block_num = 64;
   config.io_cache_block_size = 65536;
-  config.msaa = 2;
+  config.msaa = 1;
 
   f = fopen(file, "r");
   if (f == NULL)
