@@ -23,9 +23,11 @@ add_executable(max.elf
   so_util.c
   imports.c
   error.c
+  config.c
   hooks/opengl.c
   hooks/openal.c
   hooks/game.c
+  hooks/io.c
   memcpy_neon.S
 )
 
@@ -53,6 +55,7 @@ target_link_libraries(max.elf
   SceTouch_stub
   SceMotion_stub
   SceVshBridge_stub
+  SceFios2_stub
 )
 
 vita_create_self(eboot.bin max.elf UNSAFE)

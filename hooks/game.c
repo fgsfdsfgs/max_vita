@@ -32,6 +32,9 @@ static int *definedDevice;
 
 static int cur_language = -1; // unset
 
+static SceTouchPanelInfo panelInfoFront;
+static SceTouchPanelInfo panelInfoBack;
+
 int NvAPKOpen(const char *path) {
   // debugPrintf("NvAPKOpen: %s\n", path);
   return 0;
@@ -77,6 +80,7 @@ char *OS_FileGetArchiveName(int mode) {
 }
 
 void ExitAndroidGame(int code) {
+  fios_terminate(); // won't do anything if not initialized
   sceKernelExitProcess(0);
 }
 
@@ -229,11 +233,16 @@ int WarGamepad_GetGamepadButtons(int padnum) {
     mask |= 0x800;
 
   for (int i = 0; i < touch.reportNum; i++) {
-    if (touch.report[i].y > 1088/2) {
-      if (touch.report[i].x < 1920/2)
-        mask |= 0x40; // L1
-      else
-        mask |= 0x80; // R1
+    for (int i = 0; i < touch.reportNum; i++) {
+      if (touch.report[i].y >= (panelInfoFront.minAaY + panelInfoFront.maxAaY) / 2) {
+        if (touch.report[i].x < (panelInfoFront.minAaX + panelInfoFront.maxAaX) / 2) {
+          if (touch.report[i].x >= config.touch_x_margin)
+            mask |= 0x40; // L1
+        } else {
+          if (touch.report[i].x < (panelInfoFront.maxAaX - config.touch_x_margin))
+            mask |= 0x80; // R1
+        }
+      }
     }
   }
 
@@ -370,4 +379,7 @@ void patch_game(void) {
   deviceChip = (int *)so_find_addr("deviceChip");
   deviceForm = (int *)so_find_addr("deviceForm");
   definedDevice = (int *)so_find_addr("definedDevice");
+
+  sceTouchGetPanelInfo(SCE_TOUCH_PORT_FRONT, &panelInfoFront);
+  sceTouchGetPanelInfo(SCE_TOUCH_PORT_BACK, &panelInfoBack);
 }

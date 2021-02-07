@@ -72,6 +72,12 @@ static int check_kubridge(void) {
   return _vshKernelSearchModuleByName("kubridge", search_unk);
 }
 
+static int check_shacccg(void) {
+  SceIoStat stat;
+  const char *path = "ur0:/data/libshacccg.suprx";
+  return sceIoGetstat(path, &stat);
+}
+
 int main(void) {
   char path[0x200];
 
@@ -85,10 +91,18 @@ int main(void) {
   if (check_kubridge() < 0)
     fatal_error("It appears that kubridge is not loaded.\nPlease install it and reboot.");
 
+  if (check_shacccg() < 0)
+    fatal_error("It appears that you don't have libshacccg.suprx in ur0:/data/.");
+
   if (find_data() < 0)
     fatal_error("Could not find\n" DATA_PATH "\non uma0, imc0 or ux0.");
 
   check_data();
+
+  // try to read the config file and create one with default values if it's missing
+  snprintf(path, sizeof(path), "%s/" CONFIG_NAME, fs_root);
+  if (read_config(path) < 0)
+    write_config(path);
 
   snprintf(path, sizeof(path), "%s/" SO_NAME, fs_root);
   if (so_load(path) < 0)
@@ -99,6 +113,8 @@ int main(void) {
   patch_openal();
   patch_opengl();
   patch_game();
+  if (config.use_fios2)
+    patch_io();
 
   // can't set it in the initializer because it's not constant
   stderr_fake = stderr;
@@ -112,6 +128,13 @@ int main(void) {
   snprintf(path, sizeof(path), "%s/savegames", fs_root);
   sceIoMkdir(path, 0777);
 
+  // initialize fios2 if it's enabled
+  if (config.use_fios2) {
+    const int res = fios_init();
+    if (res < 0)
+      fatal_error("Could not init FIOS2:\nerror %08x", (unsigned)res);
+  }
+
   strcpy((char *)so_find_addr("StorageRootBuffer"), fs_root);
   *(uint8_t *)so_find_addr("IsAndroidPaused") = 0;
   *(uint8_t *)so_find_addr("UseRGBA8") = 1; // RGB565 fbos are not supported by vgl
@@ -122,7 +145,7 @@ int main(void) {
 
   // init vgl as late as possible in case any of the symbols above are missing
   vglSetupRuntimeShaderCompiler(SHARK_OPT_UNSAFE, SHARK_ENABLE, SHARK_ENABLE, SHARK_ENABLE);
-  vglInitExtended(SCREEN_W, SCREEN_H, 0x1000000, SCE_GXM_MULTISAMPLE_4X);
+  vglInitExtended(0, SCREEN_W, SCREEN_H, 0x1000000, config.msaa);
   vglUseVram(GL_TRUE);
 
   initGraphics();
