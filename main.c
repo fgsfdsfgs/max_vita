@@ -108,6 +108,7 @@ int main(void) {
   if (so_load(path) < 0)
     fatal_error("Could not load\n%s.", path);
 
+  update_imports();
   so_resolve(dynlib_functions, dynlib_numfunctions);
 
   patch_openal();

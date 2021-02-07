@@ -23,7 +23,9 @@ int read_config(const char *file) {
   config.use_fios2 = 1;
   config.io_cache_block_num = 64;
   config.io_cache_block_size = 65536;
+  config.trilinear_filter = 0;
   config.msaa = 1;
+  config.disable_mipmaps = 0;
 
   f = fopen(file, "r");
   if (f == NULL)
@@ -35,7 +37,9 @@ int read_config(const char *file) {
     CONFIG_VAR(use_fios2);
     CONFIG_VAR(io_cache_block_num);
     CONFIG_VAR(io_cache_block_size);
+    CONFIG_VAR(trilinear_filter);
     CONFIG_VAR(msaa);
+    CONFIG_VAR(disable_mipmaps);
     #undef CONFIG_VAR
   }
 
@@ -54,7 +58,9 @@ int write_config(const char *file) {
   CONFIG_VAR(use_fios2);
   CONFIG_VAR(io_cache_block_num);
   CONFIG_VAR(io_cache_block_size);
+  CONFIG_VAR(trilinear_filter);
   CONFIG_VAR(msaa);
+  CONFIG_VAR(disable_mipmaps);
   #undef CONFIG_VAR
 
   fclose(f);

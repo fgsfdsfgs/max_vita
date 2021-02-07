@@ -28,5 +28,6 @@ int so_load(const char *filename);
 int so_resolve(DynLibFunction *functions, int num_functions);
 void so_excute_init_array(void);
 uintptr_t so_find_addr(const char *symbol);
+DynLibFunction *so_find_import(DynLibFunction *funcs, int num_funcs, const char *name);
 
 #endif

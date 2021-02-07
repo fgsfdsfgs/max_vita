@@ -32,6 +32,7 @@
 #include <psp2/kernel/processmgr.h>
 #include <psp2/rtc.h>
 
+#include "config.h"
 #include "so_util.h"
 #include "util.h"
 
@@ -312,6 +313,19 @@ void glRenderbufferStorage(GLenum target, GLenum internalformat, GLsizei width, 
 
 void glBindRenderbuffer(GLenum target, GLuint rb) {
   // no
+}
+
+void glCompressedTexImage2DHook(GLenum target, GLint level, GLenum format, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data) {
+  // don't upload mips
+  if (level == 0)
+    glCompressedTexImage2D(target, level, format, width, height, border, imageSize, data);
+}
+
+void glTexParameteriHook(GLenum target, GLenum param, GLint val) {
+  // force trilinear filtering instead of bilinear+nearest mipmap
+  if (val == GL_LINEAR_MIPMAP_NEAREST)
+    val = GL_LINEAR_MIPMAP_LINEAR;
+  glTexParameteri(target, param, val);
 }
 
 // import table
@@ -606,3 +620,11 @@ DynLibFunction dynlib_functions[] = {
 };
 
 size_t dynlib_numfunctions = sizeof(dynlib_functions) / sizeof(*dynlib_functions);
+
+void update_imports(void) {
+  // only use the hooks if the relevant config options are enabled to avoid possible overhead
+  if (config.disable_mipmaps)
+    so_find_import(dynlib_functions, dynlib_numfunctions, "glCompressedTexImage2D")->func = (uintptr_t)glCompressedTexImage2DHook;
+  if (config.trilinear_filter)
+    so_find_import(dynlib_functions, dynlib_numfunctions, "glTexParameteri")->func = (uintptr_t)glTexParameteriHook;
+}

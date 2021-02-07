@@ -28,7 +28,9 @@ typedef struct {
   int use_fios2;
   int io_cache_block_num;
   int io_cache_block_size;
+  int trilinear_filter;
   int msaa;
+  int disable_mipmaps;
 } Config;
 
 extern Config config;

@@ -17,4 +17,6 @@ extern FILE *stderr_fake;
 extern DynLibFunction dynlib_functions[];
 extern size_t dynlib_numfunctions;
 
+void update_imports(void);
+
 #endif

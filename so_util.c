@@ -266,3 +266,10 @@ uintptr_t so_find_addr(const char *symbol) {
   fatal_error("Could not find .so symbol:\n%s", symbol);
   return 0;
 }
+
+DynLibFunction *so_find_import(DynLibFunction *funcs, int num_funcs, const char *name) {
+  for (int i = 0; i < num_funcs; ++i)
+    if (!strcmp(funcs[i].symbol, name))
+      return &funcs[i];
+  return NULL;
+}
