@@ -20,8 +20,6 @@
 #include "hooks.h"
 #include "imports.h"
 
-int sceLibcHeapSize = 8 * 1024 * 1024;
-
 int _newlib_heap_size_user = MEMORY_MB * 1024 * 1024;
 
 static int find_data(void) {
