@@ -136,10 +136,10 @@ int OS_FileOpen(int area, void **handle, char const *file, int access) {
       flags = SCE_FIOS_O_RDONLY;
       break;
     case 1:
-      flags = SCE_FIOS_O_CREAT | SCE_FIOS_O_WRONLY;
+      flags = SCE_FIOS_O_CREAT | SCE_FIOS_O_TRUNC | SCE_FIOS_O_WRONLY;
       break;
     case 2:
-      flags = SCE_FIOS_O_CREAT | SCE_FIOS_O_RDWR;
+      flags = SCE_FIOS_O_CREAT | SCE_FIOS_O_TRUNC | SCE_FIOS_O_RDWR;
       break;
     default:
       debugPrintf("Error: unknown access mode %x\n", access);
