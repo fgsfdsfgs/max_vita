@@ -17,6 +17,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "util.h"
 #include "error.h"
 #include "so_util.h"
