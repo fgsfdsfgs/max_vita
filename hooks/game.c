@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <string.h>
 #include <math.h>
 #include <psp2/kernel/threadmgr.h>
@@ -25,15 +26,20 @@
 
 extern int __cxa_guard_acquire;
 extern int __cxa_guard_release;
+extern int __cxa_throw;
 
 static int *deviceChip;
 static int *deviceForm;
 static int *definedDevice;
 
-static int cur_language = -1; // unset
-
 static SceTouchPanelInfo panelInfoFront;
 static SceTouchPanelInfo panelInfoBack;
+
+// control binding array
+typedef struct {
+  int unk[14];
+} MaxPayne_InputControl;
+static MaxPayne_InputControl *sm_control = NULL; // [32]
 
 int NvAPKOpen(const char *path) {
   // debugPrintf("NvAPKOpen: %s\n", path);
@@ -282,40 +288,54 @@ float WarGamepad_GetGamepadAxis(int padnum, int axis) {
   return 0.0f;
 }
 
-int GetAndroidCurrentLanguage(void) {
-  if (cur_language < 0) {
-    // read it from a file if available, otherwise set to english
-    char fname[0x200];
-    snprintf(fname, sizeof(fname), "%s/language.txt", fs_root);
-    FILE *f = fopen(fname, "r");
-    if (f) {
-      fscanf(f, "%d", &cur_language);
-      fclose(f);
-    }
-    if (cur_language < 0)
-      cur_language = 0; // english
+static int (* MaxPayne_InputControl_getButton)(MaxPayne_InputControl *, int);
+
+int MaxPayne_ConfiguredInput_readCrouch(void *this) {
+  static int prev = 0;
+  static int latch = 0;
+  // crouch is control #5
+  const int new = MaxPayne_InputControl_getButton(&sm_control[5], 0);
+  if (prev != new) {
+    prev = new;
+    if (new) latch = !latch;
   }
-  return cur_language;
+  return latch;
+}
+
+int GetAndroidCurrentLanguage(void) {
+  // this will be loaded from config.txt; cap it
+  if (config.language < 0 || config.language > 6)
+    config.language = 0; // english
+  return config.language;
 }
 
 void SetAndroidCurrentLanguage(int lang) {
-  if (cur_language != lang) {
-    // changed; save it to a file
+  if (config.language != lang) {
+    // changed; save config
+    config.language = lang;
     char fname[0x200];
-    snprintf(fname, sizeof(fname), "%s/language.txt", fs_root);
-    FILE *f = fopen(fname, "w");
-    if (f) {
-      fprintf(f, "%d", lang);
-      fclose(f);
-    }
-    cur_language = lang;
+    snprintf(fname, sizeof(fname), "%s/" CONFIG_NAME, fs_root);
+    write_config(fname);
   }
+}
+
+static int (* R_File_loadArchives)(void *this);
+static void (* R_File_unloadArchives)(void *this);
+static void (* R_File_enablePriorityArchive)(void *this, const char *arc);
+
+int R_File_setFileSystemRoot(void *this, const char *root) {
+  // root appears to be unused?
+  R_File_unloadArchives(this);
+  const int res = R_File_loadArchives(this);
+  R_File_enablePriorityArchive(this, config.mod_file);
+  return res;
 }
 
 void patch_game(void) {
   // make it crash in an obvious location when it calls JNI methods
   hook_thumb(so_find_addr("_Z24NVThreadGetCurrentJNIEnvv"), (uintptr_t)0x1337);
 
+  hook_thumb(so_find_addr("__cxa_throw"), (uintptr_t)&__cxa_throw);
   hook_thumb(so_find_addr("__cxa_guard_acquire"), (uintptr_t)&__cxa_guard_acquire);
   hook_thumb(so_find_addr("__cxa_guard_release"), (uintptr_t)&__cxa_guard_release);
 
@@ -374,6 +394,22 @@ void patch_game(void) {
 
   // enable shadows
   hook_thumb(so_find_addr("_ZN13X_DetailLevel19getCharacterShadowsEv"), (uintptr_t)ret1);
+
+  // crouch toggle
+  if (config.crouch_toggle) {
+    sm_control = (void *)so_find_addr("_ZN24MaxPayne_ConfiguredInput10sm_controlE");
+    MaxPayne_InputControl_getButton = (void *)so_find_addr("_ZNK21MaxPayne_InputControl9getButtonEi");
+    hook_thumb(so_find_addr("_ZNK24MaxPayne_ConfiguredInput10readCrouchEv"), (uintptr_t)MaxPayne_ConfiguredInput_readCrouch);
+  }
+
+  // if mod file is enabled, hook into R_File::setFileSystemRoot to set the mod as the priority archive
+  // before R_File::loadArchives is called
+  if (config.mod_file[0]) {
+    R_File_unloadArchives = (void *)so_find_addr("_ZN6R_File14unloadArchivesEv");
+    R_File_loadArchives = (void *)so_find_addr("_ZN6R_File12loadArchivesEv");
+    R_File_enablePriorityArchive = (void *)so_find_addr("_ZN6R_File21enablePriorityArchiveEPKc");
+    hook_thumb(so_find_addr("_ZN6R_File17setFileSystemRootEPKc"), (uintptr_t)R_File_setFileSystemRoot);
+  }
 
   // vars used in AND_SystemInitialize
   deviceChip = (int *)so_find_addr("deviceChip");

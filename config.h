@@ -31,6 +31,9 @@ typedef struct {
   int trilinear_filter;
   int msaa;
   int disable_mipmaps;
+  int language;
+  int crouch_toggle;
+  char mod_file[0x100];
 } Config;
 
 extern Config config;

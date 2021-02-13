@@ -49,12 +49,18 @@ static void check_data(void) {
     "data",
     "es2",
     // if this is missing, assets folder hasn't been merged in
-    "es2/DefaultPixel.txt"
+    "es2/DefaultPixel.txt",
+    // mod file goes here
+    "",
   };
   char path[0x200];
   SceIoStat stat;
+  unsigned int numfiles = (sizeof(files) / sizeof(*files)) - 1;
+  // if mod is enabled, also check for mod file
+  if (config.mod_file[0])
+    files[numfiles++] = config.mod_file;
   // check if all the required files are present
-  for (unsigned int i = 0; i < sizeof(files) / sizeof(*files); ++i) {
+  for (unsigned int i = 0; i < numfiles; ++i) {
     snprintf(path, sizeof(path), "%s/%s", fs_root, files[i]);
     if (sceIoGetstat(path, &stat) < 0) {
       fatal_error("Could not find\n%s.\nCheck your data files.", path);
@@ -70,10 +76,9 @@ static int check_kubridge(void) {
   return _vshKernelSearchModuleByName("kubridge", search_unk);
 }
 
-static int check_shacccg(void) {
+static int file_exists(const char *path) {
   SceIoStat stat;
-  const char *path = "ur0:/data/libshacccg.suprx";
-  return sceIoGetstat(path, &stat);
+  return sceIoGetstat(path, &stat) >= 0;
 }
 
 int main(void) {
@@ -89,18 +94,18 @@ int main(void) {
   if (check_kubridge() < 0)
     fatal_error("It appears that kubridge is not loaded.\nPlease install it and reboot.");
 
-  if (check_shacccg() < 0)
+  if (!file_exists("ur0:/data/libshacccg.suprx"))
     fatal_error("It appears that you don't have libshacccg.suprx in ur0:/data/.");
 
   if (find_data() < 0)
     fatal_error("Could not find\n" DATA_PATH "\non uma0, imc0 or ux0.");
 
-  check_data();
-
   // try to read the config file and create one with default values if it's missing
   snprintf(path, sizeof(path), "%s/" CONFIG_NAME, fs_root);
   if (read_config(path) < 0)
     write_config(path);
+
+  check_data();
 
   snprintf(path, sizeof(path), "%s/" SO_NAME, fs_root);
   if (so_load(path) < 0)
