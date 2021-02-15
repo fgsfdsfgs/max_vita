@@ -31,7 +31,7 @@ To install:
 
 ### Notes
 
-You can put the game data onto `uma0:` or `imc0:` instead of `ux0:`. Paths after `:` remain the same except. This document uses `ux0` in most paths as an example.
+You can put the game data onto `uma0:` or `imc0:` instead of `ux0:`. Paths after `:` remain the same. This document uses `ux0` in most paths as an example.
 
 The Vita port has an extra config file, located at `ux0:/data/maxpayne/config.txt`. It is created when you first run the game and allows you to tweak some internal settings. For more detailed descriptions of said settings check the [wiki article](https://github.com/fgsfdsfgs/max_vita/wiki/Config-variables).
 
