@@ -29,7 +29,13 @@ To install:
 4. Extract the contents of the `.obb` file into `ux0:/data/maxpayne`. You can skip all the `.msf` files except for `MaxPayneSoundsv2.msf` and any extra languages that you want.
 5. Extract the contents of the `data.zip` from the latest release into `ux0:/data`. Replace everything.
 
-You can put the game data onto `uma0:` or `imc0:` instead of `ux0:`. Paths remain the same.
+### Notes
+
+You can put the game data onto `uma0:` or `imc0:` instead of `ux0:`. Paths after `:` remain the same except. This document uses `ux0` in most paths as an example.
+
+The Vita port has an extra config file, located at `ux0:/data/maxpayne/config.txt`. It is created when you first run the game and allows you to tweak some internal settings. For more detailed descriptions of said settings check the [wiki article](https://github.com/fgsfdsfgs/max_vita/wiki/Config-variables).
+
+To enable bullet casings and ejected magazines (and possibly other debris missing from the mobile version), open up `ux0:/data/maxpayne/data/globalconfig.txt` and change
 
 The game will show an error message if it detects that anything is wrong. Please read those and check the relevant parts of your setup.
 
@@ -44,7 +50,7 @@ You're going to need these things recompiled with the `-mfloat-abi=softfp` compi
 * [openal-soft](https://github.com/isage/openal-soft/tree/vita-1.19.1)
 * [libmathneon](https://github.com/Rinnegatamante/math-neon)
 * [vitashark](https://github.com/Rinnegatamante/vitaShaRK)
-* [vitaGL](https://github.com/Rinnegatamante/vitaGL) (build with `HAVE_SBRK=1 HAVE_SHARK=1 SOFTFP_ABI=1 NO_DEBUG=1`)
+* [vitaGL](https://github.com/Rinnegatamante/vitaGL) (build with `HAVE_SBRK=1 SOFTFP_ABI=1 NO_DEBUG=1`)
 
 You're also going to need the static library and header for [kubridge](https://github.com/TheOfficialFloW/kubridge):
 ```
