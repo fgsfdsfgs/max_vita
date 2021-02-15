@@ -35,8 +35,6 @@ You can put the game data onto `uma0:` or `imc0:` instead of `ux0:`. Paths after
 
 The Vita port has an extra config file, located at `ux0:/data/maxpayne/config.txt`. It is created when you first run the game and allows you to tweak some internal settings. For more detailed descriptions of said settings check the [wiki article](https://github.com/fgsfdsfgs/max_vita/wiki/Config-variables).
 
-To enable bullet casings and ejected magazines (and possibly other debris missing from the mobile version), open up `ux0:/data/maxpayne/data/globalconfig.txt` and change
-
 The game will show an error message if it detects that anything is wrong. Please read those and check the relevant parts of your setup.
 
 If the error says `Could not find symbol ...`, that likely means you have the wrong `.apk`. You need one for v1.7, others **will not work**.
