@@ -331,6 +331,22 @@ int R_File_setFileSystemRoot(void *this, const char *root) {
   return res;
 }
 
+int X_DetailLevel_getCharacterShadows(void) {
+  return config.character_shadows;
+}
+
+int X_DetailLevel_getDropHighestLOD(void) {
+  return config.drop_highest_lod;
+}
+
+float X_DetailLevel_getDecalLimitMultiplier(void) {
+  return config.decal_limit;
+}
+
+float X_DetailLevel_getDebrisProjectileLimitMultiplier(void) {
+  return config.debris_limit;
+}
+
 void patch_game(void) {
   // make it crash in an obvious location when it calls JNI methods
   hook_thumb(so_find_addr("_Z24NVThreadGetCurrentJNIEnvv"), (uintptr_t)0x1337);
@@ -392,8 +408,11 @@ void patch_game(void) {
 
   hook_thumb(so_find_addr("_Z15ExitAndroidGamev"), (uintptr_t)ExitAndroidGame);
 
-  // enable shadows
-  hook_thumb(so_find_addr("_ZN13X_DetailLevel19getCharacterShadowsEv"), (uintptr_t)ret1);
+  // hook detail level getters to our own settings
+  hook_thumb(so_find_addr("_ZN13X_DetailLevel19getCharacterShadowsEv"), (uintptr_t)X_DetailLevel_getCharacterShadows);
+  hook_thumb(so_find_addr("_ZN13X_DetailLevel34getDebrisProjectileLimitMultiplierEv"), (uintptr_t)X_DetailLevel_getDebrisProjectileLimitMultiplier);
+  hook_thumb(so_find_addr("_ZN13X_DetailLevel23getDecalLimitMultiplierEv"), (uintptr_t)X_DetailLevel_getDecalLimitMultiplier);
+  hook_thumb(so_find_addr("_ZN13X_DetailLevel13dropHighesLODEv"), (uintptr_t)X_DetailLevel_getDropHighestLOD);
 
   // crouch toggle
   if (config.crouch_toggle) {

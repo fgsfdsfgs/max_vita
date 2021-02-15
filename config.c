@@ -23,15 +23,21 @@
   CONFIG_VAR_INT(disable_mipmaps); \
   CONFIG_VAR_INT(language); \
   CONFIG_VAR_INT(crouch_toggle); \
+  CONFIG_VAR_INT(character_shadows); \
+  CONFIG_VAR_INT(drop_highest_lod); \
+  CONFIG_VAR_FLOAT(decal_limit); \
+  CONFIG_VAR_FLOAT(debris_limit); \
   CONFIG_VAR_STR(mod_file);
 
 Config config;
 
 static inline void parse_var(const char *name, const char *value) {
   #define CONFIG_VAR_INT(var) if (!strcmp(name, #var)) { config.var = atoi(value); return; }
+  #define CONFIG_VAR_FLOAT(var) if (!strcmp(name, #var)) { config.var = atof(value); return; }
   #define CONFIG_VAR_STR(var) if (!strcmp(name, #var)) { strlcpy(config.var, value, sizeof(config.var)); return; }
   CONFIG_VARS
   #undef CONFIG_VAR_INT
+  #undef CONFIG_VAR_FLOAT
   #undef CONFIG_VAR_STR
 }
 
@@ -48,6 +54,10 @@ int read_config(const char *file) {
   config.disable_mipmaps = 0;
   config.language = 0; // english
   config.crouch_toggle = 1;
+  config.character_shadows = 1; // 1 - one blob; 2 - foot shadows
+  config.drop_highest_lod = 1; // does this even do anything?
+  config.decal_limit = 0.33f;
+  config.debris_limit = 0.33f;
 
   FILE *f = fopen(file, "r");
   if (f == NULL)
@@ -87,9 +97,11 @@ int write_config(const char *file) {
     return -1;
 
   #define CONFIG_VAR_INT(var) fprintf(f, "%s %d\n", #var, config.var)
+  #define CONFIG_VAR_FLOAT(var) fprintf(f, "%s %g\n", #var, config.var)
   #define CONFIG_VAR_STR(var) if (config.var[0]) fprintf(f, "%s %s\n", #var, config.var)
   CONFIG_VARS
   #undef CONFIG_VAR_INT
+  #undef CONFIG_VAR_FLOAT
   #undef CONFIG_VAR_STR
 
   fclose(f);

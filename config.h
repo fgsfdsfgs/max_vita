@@ -33,6 +33,10 @@ typedef struct {
   int disable_mipmaps;
   int language;
   int crouch_toggle;
+  int character_shadows;
+  int drop_highest_lod;
+  float decal_limit;
+  float debris_limit;
   char mod_file[0x100];
 } Config;
 
