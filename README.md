@@ -44,11 +44,11 @@ If the game crashes on startup, please post an issue with your last crash dump a
 ### How to build the `master` branch
 
 You're going to need these things recompiled with the `-mfloat-abi=softfp` compiler flag:
-* The entirety of [VitaSDK](https://github.com/vitasdk) ([Linux build](https://github.com/vitasdk/buildscripts/suites/1824103476/artifacts/35161735), [Windows build](https://github.com/vitasdk/buildscripts/suites/1836262288/artifacts/35501612))
+* The entirety of [VitaSDK](https://github.com/vitasdk) ([Linux build](https://github.com/vitasdk/buildscripts/suites/2943994805/artifacts/66184169), [Windows build](https://github.com/vitasdk/buildscripts/suites/2943994805/artifacts/66184170))
 * [openal-soft](https://github.com/isage/openal-soft/tree/vita-1.19.1)
 * [libmathneon](https://github.com/Rinnegatamante/math-neon)
 * [vitashark](https://github.com/Rinnegatamante/vitaShaRK)
-* [vitaGL](https://github.com/Rinnegatamante/vitaGL) (build with `HAVE_SBRK=1 SOFTFP_ABI=1 NO_DEBUG=1`)
+* [vitaGL](https://github.com/Rinnegatamante/vitaGL) (build with `SOFTFP_ABI=1 NO_DEBUG=1`)
 
 You're also going to need the static library and header for [kubridge](https://github.com/TheOfficialFloW/kubridge):
 ```
