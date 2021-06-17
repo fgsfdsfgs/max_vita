@@ -11,7 +11,8 @@
 
 #define LOAD_ADDRESS 0x98000000
 
-#define MEMORY_MB 256
+#define MEMORY_SCELIBC_MB 4
+#define MEMORY_NEWLIB_MB 256
 
 #define DATA_PATH "data/maxpayne"
 #define SO_NAME "libMaxPayne.so"
@@ -25,7 +26,6 @@
 
 typedef struct {
   int touch_x_margin;
-  int use_fios2;
   int io_cache_block_num;
   int io_cache_block_size;
   int trilinear_filter;

@@ -28,30 +28,16 @@
 #include <vitaGL.h>
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/kernel/clib.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/rtc.h>
 
+#include "libc_bridge.h"
+
 #include "config.h"
 #include "so_util.h"
 #include "util.h"
-
-#define GL_MAX_VERTEX_UNIFORM_VECTORS 0x8DFB
-#define GL_DEPTH_WRITEMASK 0x0B72
-#define CLOCK_MONOTONIC 0
-
-extern int __aeabi_memclr;
-extern int __aeabi_memclr4;
-extern int __aeabi_memclr8;
-extern int __aeabi_memcpy;
-extern int __aeabi_memcpy4;
-extern int __aeabi_memcpy8;
-extern int __aeabi_memmove;
-extern int __aeabi_memmove4;
-extern int __aeabi_memmove8;
-extern int __aeabi_memset;
-extern int __aeabi_memset4;
-extern int __aeabi_memset8;
 
 extern int __cxa_atexit;
 extern int __gnu_unwind_frame;
@@ -260,12 +246,13 @@ int pthread_create_fake(pthread_t *thread, const void *unused, void *entry, void
 // time stuff
 
 // from re3-vita
+#define CLOCK_MONOTONIC 0
 int clock_gettime(int clk_id, struct timespec *tp) {
   if (clk_id == CLOCK_MONOTONIC) {
     SceKernelSysClock ticks;
     sceKernelGetProcessTime(&ticks);
-    tp->tv_sec = ticks/(1000*1000);
-    tp->tv_nsec = (ticks * 1000) % (1000*1000*1000);
+    tp->tv_sec = ticks / (1000 * 1000);
+    tp->tv_nsec = (ticks * 1000) % (1000 * 1000 * 1000);
     return 0;
   } else if (clk_id == CLOCK_REALTIME) {
     time_t seconds;
@@ -328,6 +315,22 @@ void glTexParameteriHook(GLenum target, GLenum param, GLint val) {
   glTexParameteri(target, param, val);
 }
 
+int stat_hook(const char *pathname, void *statbuf) {
+  struct stat st;
+  int res = stat(pathname, &st);
+  if (res == 0)
+    *(int *)(statbuf + 0x50) = st.st_mtime;
+  return res;
+}
+
+void *sceClibMemclr(void *dst, SceSize len) {
+  return sceClibMemset(dst, 0, len);
+}
+
+void *sceClibMemset2(void *dst, SceSize len, int ch) {
+  return sceClibMemset(dst, ch, len);
+}
+
 // import table
 
 DynLibFunction dynlib_functions[] = {
@@ -336,13 +339,13 @@ DynLibFunction dynlib_functions[] = {
 
   { "stderr", (uintptr_t)&stderr_fake },
 
-  { "__aeabi_memclr", (uintptr_t)&__aeabi_memclr },
-  { "__aeabi_memclr8", (uintptr_t)&__aeabi_memclr8 },
-  { "__aeabi_memcpy", (uintptr_t)&__aeabi_memcpy },
-  { "__aeabi_memcpy4", (uintptr_t)&__aeabi_memcpy4 },
-  { "__aeabi_memmove", (uintptr_t)&__aeabi_memmove },
-  { "__aeabi_memmove4", (uintptr_t)&__aeabi_memmove4 },
-  { "__aeabi_memset", (uintptr_t)&__aeabi_memset },
+  { "__aeabi_memclr", (uintptr_t)&sceClibMemclr },
+  { "__aeabi_memclr8", (uintptr_t)&sceClibMemclr },
+  { "__aeabi_memcpy", (uintptr_t)&sceClibMemcpy },
+  { "__aeabi_memcpy4", (uintptr_t)&sceClibMemcpy },
+  { "__aeabi_memmove", (uintptr_t)&sceClibMemmove },
+  { "__aeabi_memmove4", (uintptr_t)&sceClibMemmove },
+  { "__aeabi_memset", (uintptr_t)&sceClibMemset2 },
 
   { "AAssetManager_open", (uintptr_t)&ret0 },
   { "AAssetManager_fromJava", (uintptr_t)&ret0 },
@@ -450,23 +453,23 @@ DynLibFunction dynlib_functions[] = {
   { "abort", (uintptr_t)&abort },
   { "exit", (uintptr_t)&exit },
 
-  { "fopen", (uintptr_t)&fopen },
-  { "fclose", (uintptr_t)&fclose },
-  { "fdopen", (uintptr_t)&fdopen },
-  { "fflush", (uintptr_t)&fflush },
-  { "fgetc", (uintptr_t)&fgetc },
-  { "fgets", (uintptr_t)&fgets },
-  { "fputs", (uintptr_t)&fputs },
-  { "fputc", (uintptr_t)&fputc },
+  { "fopen", (uintptr_t)&sceLibcBridge_fopen },
+  { "fclose", (uintptr_t)&sceLibcBridge_fclose },
+  // { "fdopen", (uintptr_t)&fdopen },
+  // { "fflush", (uintptr_t)&fflush },
+  // { "fgetc", (uintptr_t)&fgetc },
+  // { "fgets", (uintptr_t)&fgets },
+  // { "fputs", (uintptr_t)&fputs },
+  // { "fputc", (uintptr_t)&fputc },
   { "fprintf", (uintptr_t)&fprintf },
-  { "fread", (uintptr_t)&fread },
-  { "fseek", (uintptr_t)&fseek },
-  { "ftell", (uintptr_t)&ftell },
-  { "fwrite", (uintptr_t)&fwrite },
-  { "fstat", (uintptr_t)&fstat },
-  { "ferror", (uintptr_t)&ferror },
-  { "feof", (uintptr_t)&feof },
-  { "setvbuf", (uintptr_t)&setvbuf },
+  { "fread", (uintptr_t)&sceLibcBridge_fread },
+  { "fseek", (uintptr_t)&sceLibcBridge_fseek },
+  { "ftell", (uintptr_t)&sceLibcBridge_ftell },
+  { "fwrite", (uintptr_t)&sceLibcBridge_fwrite },
+  // { "fstat", (uintptr_t)&fstat },
+  { "ferror", (uintptr_t)&sceLibcBridge_ferror },
+  { "feof", (uintptr_t)&sceLibcBridge_feof },
+  // { "setvbuf", (uintptr_t)&setvbuf },
 
   { "getenv", (uintptr_t)&getenv },
 
@@ -553,10 +556,10 @@ DynLibFunction dynlib_functions[] = {
 
   { "memcmp", (uintptr_t)&memcmp },
   { "wmemcmp", (uintptr_t)&wmemcmp },
-  { "memcpy", (uintptr_t)&memcpy_neon },
-  { "memmove", (uintptr_t)&memmove },
-  { "memset", (uintptr_t)&memset },
-  { "memchr", (uintptr_t)&memchr },
+  { "memcpy", (uintptr_t)&sceClibMemcpy },
+  { "memmove", (uintptr_t)&sceClibMemmove },
+  { "memset", (uintptr_t)&sceClibMemset },
+  { "memchr", (uintptr_t)&sceClibMemchr },
 
   { "printf", (uintptr_t)&debugPrintf },
 
@@ -575,7 +578,7 @@ DynLibFunction dynlib_functions[] = {
   { "mkdir", (uintptr_t)&mkdir },
   { "open", (uintptr_t)&open },
   { "read", (uintptr_t)&read },
-  { "stat", (uintptr_t)stat },
+  { "stat", (uintptr_t)&stat_hook },
   { "write", (uintptr_t)&write },
 
   { "strcasecmp", (uintptr_t)&strcasecmp },
@@ -587,13 +590,13 @@ DynLibFunction dynlib_functions[] = {
   { "stpcpy", (uintptr_t)&stpcpy },
   { "strerror", (uintptr_t)&strerror },
   { "strlen", (uintptr_t)&strlen },
-  { "strncasecmp", (uintptr_t)&strncasecmp },
-  { "strncat", (uintptr_t)&strncat },
-  { "strncmp", (uintptr_t)&strncmp },
-  { "strncpy", (uintptr_t)&strncpy },
+  { "strncasecmp", (uintptr_t)&sceClibStrncasecmp },
+  { "strncat", (uintptr_t)&sceClibStrncat },
+  { "strncmp", (uintptr_t)&sceClibStrncmp },
+  { "strncpy", (uintptr_t)&sceClibStrncpy },
   { "strpbrk", (uintptr_t)&strpbrk },
-  { "strrchr", (uintptr_t)&strrchr },
-  { "strstr", (uintptr_t)&strstr },
+  { "strrchr", (uintptr_t)&sceClibStrrchr },
+  { "strstr", (uintptr_t)&sceClibStrstr },
   { "strtod", (uintptr_t)&strtod },
   { "strtok", (uintptr_t)&strtok },
   { "strtol", (uintptr_t)&strtol },
