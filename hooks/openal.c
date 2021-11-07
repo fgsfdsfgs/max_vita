@@ -166,7 +166,6 @@ void patch_openal(void) {
   hook_thumb(so_find_addr("alSourcei"), (uintptr_t)alSourcei);
   hook_thumb(so_find_addr("alSourceiv"), (uintptr_t)alSourceiv);
   hook_thumb(so_find_addr("alSpeedOfSound"), (uintptr_t)alSpeedOfSound);
-  hook_thumb(so_find_addr("al_print"), (uintptr_t)ret0);
   hook_thumb(so_find_addr("alcCaptureCloseDevice"), (uintptr_t)alcCaptureCloseDevice);
   hook_thumb(so_find_addr("alcCaptureOpenDevice"), (uintptr_t)alcCaptureOpenDevice);
   hook_thumb(so_find_addr("alcCaptureSamples"), (uintptr_t)alcCaptureSamples);

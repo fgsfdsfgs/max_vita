@@ -20,7 +20,8 @@
 #include "hooks.h"
 #include "imports.h"
 
-int _newlib_heap_size_user = MEMORY_MB * 1024 * 1024;
+int sceLibcHeapSize = MEMORY_SCELIBC_MB * 1024 * 1024;
+int _newlib_heap_size_user = MEMORY_NEWLIB_MB * 1024 * 1024;
 
 static int find_data(void) {
   const char *drives[] = { "uma0", "imc0", "ux0" };
@@ -117,8 +118,6 @@ int main(void) {
   patch_openal();
   patch_opengl();
   patch_game();
-  if (config.use_fios2)
-    patch_io();
 
   // can't set it in the initializer because it's not constant
   stderr_fake = stderr;
@@ -132,12 +131,10 @@ int main(void) {
   snprintf(path, sizeof(path), "%s/savegames", fs_root);
   sceIoMkdir(path, 0777);
 
-  // initialize fios2 if it's enabled
-  if (config.use_fios2) {
-    const int res = fios_init();
-    if (res < 0)
-      fatal_error("Could not init FIOS2:\nerror %08x", (unsigned)res);
-  }
+  // initialize fios2
+  const int res = fios_init();
+  if (res < 0)
+    fatal_error("Could not init FIOS2:\nerror %08x", (unsigned)res);
 
   strcpy((char *)so_find_addr("StorageRootBuffer"), fs_root);
   *(uint8_t *)so_find_addr("IsAndroidPaused") = 0;

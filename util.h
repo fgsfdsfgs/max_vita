@@ -11,8 +11,6 @@
 
 extern char fs_root[];
 
-void *memcpy_neon(void *destination, const void *source, size_t num);
-
 int debugPrintf(char *text, ...);
 
 int ret0(void);

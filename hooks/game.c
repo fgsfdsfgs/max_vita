@@ -32,8 +32,9 @@ static int *deviceChip;
 static int *deviceForm;
 static int *definedDevice;
 
+static SceCtrlData pad;
+static SceTouchData touch_front;
 static SceTouchPanelInfo panelInfoFront;
-static SceTouchPanelInfo panelInfoBack;
 
 // control binding array
 typedef struct {
@@ -54,7 +55,7 @@ int AND_DeviceType(void) {
   // 0x1: phone
   // 0x2: tegra
   // low memory is < 256
-  return (MEMORY_MB << 6) | (3 << 2) | 0x1;
+  return (MEMORY_NEWLIB_MB << 6) | (3 << 2) | 0x1;
 }
 
 int AND_DeviceLocale(void) {
@@ -149,10 +150,8 @@ void *OS_ThreadLaunch(int (* func)(), void *arg, int r2, char *name, int r4, int
 }
 
 int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
-  char fullpath[1024];
+  char fullpath[512];
   snprintf(fullpath, sizeof(fullpath), "%s/%s", fs_root, file);
-
-  debugPrintf("ReadDataFromPrivateStorage %s\n", fullpath);
 
   FILE *f = fopen(fullpath, "rb");
   if (!f) return 0;
@@ -180,10 +179,8 @@ int ReadDataFromPrivateStorage(const char *file, void **data, int *size) {
 }
 
 int WriteDataToPrivateStorage(const char *file, const void *data, int size) {
-  char fullpath[1024];
+  char fullpath[512];
   snprintf(fullpath, sizeof(fullpath), "%s/%s", fs_root, file);
-
-  debugPrintf("WriteDataToPrivateStorage %s\n", fullpath);
 
   FILE *f = fopen(fullpath, "wb");
   if (!f) return 0;
@@ -200,18 +197,22 @@ int WriteDataToPrivateStorage(const char *file, const void *data, int size) {
 // 8: PS3
 // 9: IOSExtended
 // 10: IOSSimple
-int WarGamepad_GetGamepadType(int padnum) {
+int WarGamepad_GetGamepadType(int port) {
+  if (port != 0 && port != 1)
+    return -1;
+
+  if (sceCtrlPeekBufferPositiveExt2(port == 0 ? 0 : 2, &pad, 1) < 0)
+    return -1;
+
+  if (port == 0) {
+    sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch_front, 1);
+  }
+
   return 8;
 }
 
-int WarGamepad_GetGamepadButtons(int padnum) {
+int WarGamepad_GetGamepadButtons(int port) {
   int mask = 0;
-
-  SceCtrlData pad;
-  sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
-
-  SceTouchData touch;
-  sceTouchPeek(0, &touch, 1);
 
   if (pad.buttons & SCE_CTRL_CROSS)
     mask |= 0x1;
@@ -238,14 +239,14 @@ int WarGamepad_GetGamepadButtons(int padnum) {
   if (pad.buttons & SCE_CTRL_RIGHT)
     mask |= 0x800;
 
-  for (int i = 0; i < touch.reportNum; i++) {
-    for (int i = 0; i < touch.reportNum; i++) {
-      if (touch.report[i].y >= (panelInfoFront.minAaY + panelInfoFront.maxAaY) / 2) {
-        if (touch.report[i].x < (panelInfoFront.minAaX + panelInfoFront.maxAaX) / 2) {
-          if (touch.report[i].x >= config.touch_x_margin)
+  for (int i = 0; i < touch_front.reportNum; i++) {
+    for (int i = 0; i < touch_front.reportNum; i++) {
+      if (touch_front.report[i].y >= (panelInfoFront.minAaY + panelInfoFront.maxAaY) / 2) {
+        if (touch_front.report[i].x < (panelInfoFront.minAaX + panelInfoFront.maxAaX) / 2) {
+          if (touch_front.report[i].x >= config.touch_x_margin)
             mask |= 0x40; // L1
         } else {
-          if (touch.report[i].x < (panelInfoFront.maxAaX - config.touch_x_margin))
+          if (touch_front.report[i].x < (panelInfoFront.maxAaX - config.touch_x_margin))
             mask |= 0x80; // R1
         }
       }
@@ -255,10 +256,7 @@ int WarGamepad_GetGamepadButtons(int padnum) {
   return mask;
 }
 
-float WarGamepad_GetGamepadAxis(int padnum, int axis) {
-  SceCtrlData pad;
-  sceCtrlPeekBufferPositiveExt2(0, &pad, 1);
-
+float WarGamepad_GetGamepadAxis(int port, int axis) {
   float val = 0.0f;
 
   switch (axis) {
@@ -436,5 +434,4 @@ void patch_game(void) {
   definedDevice = (int *)so_find_addr("definedDevice");
 
   sceTouchGetPanelInfo(SCE_TOUCH_PORT_FRONT, &panelInfoFront);
-  sceTouchGetPanelInfo(SCE_TOUCH_PORT_BACK, &panelInfoBack);
 }

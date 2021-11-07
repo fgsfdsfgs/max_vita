@@ -15,7 +15,6 @@
 
 #define CONFIG_VARS \
   CONFIG_VAR_INT(touch_x_margin); \
-  CONFIG_VAR_INT(use_fios2); \
   CONFIG_VAR_INT(io_cache_block_num); \
   CONFIG_VAR_INT(io_cache_block_size); \
   CONFIG_VAR_INT(trilinear_filter); \
@@ -46,7 +45,6 @@ int read_config(const char *file) {
 
   memset(&config, 0, sizeof(Config));
   config.touch_x_margin = 100;
-  config.use_fios2 = 1;
   config.io_cache_block_num = 64;
   config.io_cache_block_size = 65536;
   config.trilinear_filter = 0;
