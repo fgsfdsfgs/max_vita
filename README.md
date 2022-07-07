@@ -1,6 +1,7 @@
 ## Max Payne Mobile PS Vita port
 
 This is a wrapper/port of the Android version of Max Payne Mobile. It loads the original game binary, patches it and runs it.
+It's basically as if we emulate a minimalist Android environment in which we natively run the original Android binary as is.
 This is probably not entirely stable yet, so expect issues.
 
 ### How to install
